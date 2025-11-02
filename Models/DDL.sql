@@ -24,7 +24,7 @@ CREATE TABLE item (
   zone text NOT NULL,
   doel text NOT NULL,
   verpakking text NOT NULL,
-  aantal int NOT NULL DEFAULT 0,
+  aantal int NOT NULL,
   comment text,
   CONSTRAINT UC2 UNIQUE(materiaal_id, zone, doel, verpakking),
   CONSTRAINT CC2 CHECK(doel IN('to keep', 'for sale', 'to be thrown away')),

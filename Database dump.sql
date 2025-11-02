@@ -24,7 +24,7 @@ CREATE TABLE item (
   zone text NOT NULL,
   doel text NOT NULL,
   verpakking text NOT NULL,
-  aantal int NOT NULL DEFAULT 0,
+  aantal int NOT NULL,
   comment text,
   CONSTRAINT UC2 UNIQUE(materiaal_id, zone, doel, verpakking),
   CONSTRAINT CC2 CHECK(doel IN('to keep', 'for sale', 'to be thrown away')),
@@ -53,4 +53,4 @@ INSERT INTO "public"."materiaal" ("materiaal_id", "type", "omschrijving", "lifec
 INSERT INTO "public"."zone" ("zone") VALUES ('22A'), ('25B'), ('26B');
 INSERT INTO "public"."item" ("item_id", "materiaal_id", "zone", "doel", "verpakking", "aantal", "comment") VALUES ('1', '5', '26B', 'for sale', 'gesloten', '24', null), ('2', '7', '26B', 'for sale', 'gesloten', '22', 'OPVOLGER 3RT2015-1AP01'), ('3', '14', '26B', 'for sale', 'gesloten', '27', 'OPVOLGER 3RT2916-1CD00'), ('4', '1', '26B', 'for sale', 'gesloten', '10', '10st/doos . OPVOLGER 3SU1400-1AA10-1HA0'), ('5', '20', '26B', 'for sale', 'gesloten', '18', '1 doos: 10 stuks en 1 doos: 8 stuks'), ('6', '16', '26B', 'for sale', 'gesloten', '11', null), ('7', '4', '26B', 'for sale', 'gesloten', '40', '20st/doos'), ('8', '24', '26B', 'for sale', 'gesloten', '10', '10st/doos'), ('9', '15', '25B', 'for sale', 'gesloten', '10', '5 ST/DOOS'), ('10', '3', '25B', 'for sale', 'geen', '14', null), ('11', '23', '25B', 'for sale', 'gesloten', '13', null), ('12', '9', '25B', 'for sale', 'gesloten', '40', '5 ST/DOOS'), ('13', '12', '25B', 'for sale', 'gesloten', '40', null), ('14', '18', '25B', 'for sale', 'open', '20', null), ('15', '2', '25B', 'for sale', 'gesloten', '21', null), ('16', '8', '25B', 'for sale', 'gesloten', '13', null), ('17', '13', '25B', 'for sale', 'gesloten', '10', null), ('18', '10', '25B', 'for sale', 'gesloten', '90', null), ('19', '21', '25B', 'for sale', 'gesloten', '80', null), ('20', '6', '25B', 'for sale', 'gesloten', '10', null), ('21', '11', '25B', 'for sale', 'gesloten', '52', null), ('22', '17', '25B', 'for sale', 'gesloten', '22', null), ('23', '19', '25B', 'for sale', 'geen', '78', null), ('24', '22', '22A', 'for sale', 'open', '10', '10 stuks in doos ');
 
-#INSERT UNTO "public"."gebruiker"
+#INSERT UNTO "public"."gebruik" ("item_id", "gebruiker", "datum", "hoeveelheid", "project", "reservatie") VALUES ();
