@@ -24,3 +24,11 @@
 
 
 # Other links/info
+
+    - Database Design
+
+        https://supabase.com/dashboard/project/dlklychiybmzxpqfadks/database/schemas
+
+    - Conceptual phase
+
+        (link)
