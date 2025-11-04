@@ -4,3 +4,5 @@ from .models import db, lifecycle, materiaal, zone, item, gebruik
 main = Blueprint('main', __name__)
 
 #Bovenstaande code niet aanpassen!!!
+
+# Eerst User-Stories!
