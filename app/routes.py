@@ -5,7 +5,6 @@ main = Blueprint('main', __name__)
 
 #Bovenstaande code niet aanpassen!!!
 
-
 # Eerst User-Stories!
 #----------------------HOME--------------------------
 @main.route('/', methods=['GET'])

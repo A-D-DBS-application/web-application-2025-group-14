@@ -61,7 +61,7 @@ class Item(db.Model):
 
 class Reservation(db.Model):
     item_id = db.Column(db.Integer, db.ForeignKey('item.item_id', ondelete="CASCADE", onupdate="CASCADE"), primary_key=True)
-    user = db.Column(db.String, primary_key=True)
+    username = db.Column(db.String, primary_key=True)
     date = db.Column(db.DateTime, server_default=db.func.current_timestamp(), primary_key=True) #timestamp DEFAULT CURRENT_TIMESTAMP (SQL)
     quantity = db.Column(db.Integer, nullable=False)
     project = db.Column(db.String)
@@ -69,4 +69,4 @@ class Reservation(db.Model):
     #geen relationship nodig, want we navigeren al van item → reservation
 
     def __repr__(self):
-        return f"<Reservation: item={self.item_id}, user={self.user}, date={self.date}>" #PK
+        return f"<Reservation: item={self.item_id}, user={self.username}, date={self.date}>" #PK

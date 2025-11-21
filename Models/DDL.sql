@@ -32,11 +32,11 @@ CREATE TABLE item (
 
 CREATE TABLE reservation (
   item_id int NOT NULL,
-  user text NOT NULL,
+  username text NOT NULL,
   date timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   quantity int NOT NULL,
   project text,
-  PRIMARY KEY (item_id, user, date),
+  PRIMARY KEY (item_id, username, date),
   FOREIGN KEY (item_id) REFERENCES item (item_id)
     ON DELETE CASCADE ON UPDATE CASCADE
 );
