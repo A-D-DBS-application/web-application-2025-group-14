@@ -35,8 +35,6 @@ def inventory():
             "count": count,
         })
 
-<<<<<<< HEAD
-<<<<<<< HEAD
     # 2) Items voor de hoofd-lijst
     query = Item.query.join(Material).join(Zone)
 
@@ -105,5 +103,4 @@ def use_item(item_id):
         return redirect(url_for('main.inventory'))
 
     return render_template('use_item.html', item=item)
-=======
 #Tot hier ben k geraakt nu ben ik er niet zeker van hoe het verder moet. Dit heb ik zo goed mogelijk proberen doen adhv UI prototype.
