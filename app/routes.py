@@ -99,4 +99,3 @@ def toon_merk(merknaam):
 
 #Tot hier ben k geraakt nu ben ik er niet zeker van hoe het verder moet. Dit heb ik zo goed mogelijk proberen doen adhv UI prototype.
 
-nieuwe code
