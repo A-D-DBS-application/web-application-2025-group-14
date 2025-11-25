@@ -98,3 +98,5 @@ def toon_merk(merknaam):
 #van tuples (materiaal, item). Daarna structureren we de data per type materiaal voor overzichtelijkheid.
 
 #Tot hier ben k geraakt nu ben ik er niet zeker van hoe het verder moet. Dit heb ik zo goed mogelijk proberen doen adhv UI prototype.
+
+nieuwe code
