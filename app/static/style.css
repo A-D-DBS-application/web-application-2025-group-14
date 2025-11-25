@@ -1,0 +1,222 @@
+/* Algemene layout */
+body {
+    margin: 0;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #f5f5f7;
+    color: #111827;
+}
+
+/* Layout: sidebar links, content rechts */
+.app-shell {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    min-height: 100vh;
+}
+
+/* Sidebar */
+.sidebar {
+    background: #ffffff;
+    border-right: 1px solid #e5e7eb;
+    padding: 16px 12px;
+}
+
+.sidebar-header h2 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.sidebar-subtitle {
+    margin: 4px 0 12px;
+    font-size: 12px;
+    color: #6b7280;
+}
+
+/* Lijsten in sidebar */
+.brand-list,
+.type-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.brand-item {
+    margin-bottom: 4px;
+}
+
+.brand-button {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 10px;
+    border-radius: 999px;
+    border: none;
+    background: #f3f4f6;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.brand-button.active {
+    background: #111827;
+    color: #f9fafb;
+}
+
+.brand-count {
+    font-size: 11px;
+    background: rgba(0,0,0,0.08);
+    padding: 2px 8px;
+    border-radius: 999px;
+}
+
+.type-item {
+    margin-left: 16px;
+    margin-top: 4px;
+}
+
+.type-link {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    text-decoration: none;
+    color: #111827;
+}
+
+.type-link.active {
+    background: #111827;
+    color: #f9fafb;
+}
+
+/* Main content */
+.main {
+    padding: 24px 32px;
+    background: #f9fafb;
+}
+
+/* Topbar met titel links en knoppen rechts */
+.top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+/* Titel + subtitel gegroepeerd */
+.top-bar-left {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+/* Rechterkant met icon-knoppen */
+.top-bar-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Icon-knoppen (vergrootglas, plus, winkelmandje) */
+.icon-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 999px;
+    border: 1px solid #e5e7eb;
+    background: #ffffff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    cursor: pointer;
+    text-decoration: none;
+    color: inherit;
+}
+
+.icon-btn:hover {
+    background: #f3f4f6;
+}
+
+.icon-btn:active {
+    background: #e5e7eb;
+}
+
+/* Item cards */
+.item-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 20px;
+}
+
+.item-card {
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 16px 20px;
+    border: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.item-main {
+    flex: 1;
+}
+
+.item-title {
+    font-size: 15px;
+    font-weight: 600;
+    margin: 0 0 4px;
+}
+
+.item-code {
+    font-size: 12px;
+    color: #6b7280;
+    margin-bottom: 8px;
+}
+
+.item-meta {
+    font-size: 13px;
+    color: #374151;
+    margin-bottom: 4px;
+}
+
+.item-meta strong {
+    font-weight: 600;
+}
+
+.item-secondary {
+    font-size: 13px;
+    color: #4b5563;
+}
+
+/* Acties rechts */
+.item-actions {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: flex-end;
+}
+
+.btn-primary {
+    padding: 8px 16px;
+    border-radius: 999px;
+    border: none;
+    background: #111827;
+    color: #f9fafb;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.btn-link {
+    border: none;
+    background: none;
+    padding: 0;
+    margin-top: 8px;
+    font-size: 12px;
+    color: #4b5563;
+    cursor: pointer;
+    text-decoration: underline;
+}

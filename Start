@@ -1,0 +1,15 @@
+python -m venv venv
+venv\Scripts\Activate.ps1   # of gebruik venv\Scripts\activate.bat in cmd
+
+pip install --upgrade pip
+pip install -r requirements.txt
+
+$env:FLASK_APP = "run.py"
+$env:FLASK_ENV = "development"
+
+
+python run.py
+
+
+flask --app run --debug run
+

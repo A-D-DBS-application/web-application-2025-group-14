@@ -9,7 +9,7 @@
 
 # UI Prototype
 
-    - https://www.figma.com/make/2A1yDEFoQH1LWlB74qEIY0/Group-14---Primetals?node-id=0-1&p=f&t=iirSKpCJV2XY7d9I-0
+    - https://www.figma.com/make/TUSBNStyS7Z0puSKGuhtxf/Group-14---Primetals--Community-?node-id=0-1&p=f&t=5MdOgoWmhXuWUMdf-0
 
 
 # Kanban board

@@ -1,100 +1,105 @@
 from flask import Blueprint, request, redirect, url_for, render_template, session
 from .models import db, Material, Zone, Item, Reservation
 
+from sqlalchemy import func
+
+
 main = Blueprint('main', __name__)
 
 #Bovenstaande code niet aanpassen!!!
 
-# Eerst User-Stories!
-#----------------------HOME--------------------------
-@main.route('/', methods=['GET'])
-def index():
-    return render_template('index.html') #hangt ervan af welke HTML we gebruiken
+@main.route('/')
+def inventory():
+    active_brand = request.args.get('brand')
+    active_type = request.args.get('type')
 
-#----------------------LOGIN--------------------------
-@main.route('/login', methods=['GET', 'POST'])
-def login(): #Kan nog aangepast worden indien HTML andere benaming krijgt
-    #Als gebruiker al ingelogd is, doorsturen naar homepagina
-    if 'user_id' in session:
-        return redirect(url_for('main.index'))
-    if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-
-        #Hier komt de logica om te kijken of de gebruiker bestaat en het wachtwoord klopt
-        if username == 'admin' and password == '1234':  # Voorbeeldcontrole
-            session['user_id'] = 1
-            return redirect(url_for('main.index'))
-        else:
-            error = 'Ongeldige inloggegevens. Probeer het opnieuw.'
-            return render_template('login.html', error=error)
-    
-    return render_template('login.html') #De loginpagina renderen
-
-#----------------------IDENIFICATIE--------------------------
-#Indien we geen loginpagina gebruiken en gewoon een identificatie willen dat direct doorstuurd naar de overzichtspagina:
-@main.route('/', methods=['GET', 'POST'])
-def start():
-    '''Startpagina waar de gebruiker zijn naam invult.
-    De naam wordt opgeslagen in de sessie en daarna doorgestuurd naar de homepagina.'''
-
-    if request.method == 'POST':
-        username = request.form.get('username')
-
-        if username:
-            session['username'] = username
-            return redirect(url_for('main.index'))
-        
-    return render_template('start.html')
-
-@main.route('/home')
-def home():
-    """
-    Hoofdpagina met voorraadoverzicht.
-    De gebruikersnaam wordt opgehaald uit de sessie.
-    """
-    username = session.get('username', None)
-
-    if not username: 
-        return redirect(url_for('main.start'))  # Als er geen gebruikersnaam is, terug naar startpagina
-
-#----------------------DASHBOARD--------------------------
-from sqlalchemy import func
-from .models import materiaal
-
-#Nu query opstellen voor het aantal materialen per merk
-def home():
-    merken_data = (
+    # 1) Merken + aantallen voor de sidebar
+    type_stats = (
         db.session.query(
-            materiaal.merk,
-            func.count(materiaal.id).label('aantal')
+            Material.brand,
+            Material.material_type,
+            func.count(Item.item_id)
         )
-        .group_by(materiaal.merk)
-        .all()
-    )   #👉 Deze query haalt uit je database alle merken (uit de tabel materiaal) én telt hoeveel materialen er bij elk merk horen
-
-    # Zet om in een lijst van dictionaries (voor HTML)
-    merken_lijst = [{'merk': merk, 'aantal': aantal} for merk, aantal in merken_data]
-    return render_template('home.html', merken=merken_lijst)
-
-@main.route('/merk/<string:merknaam>')
-def toon_merk(merknaam):
-    "Toont alle materialen en items die horen bij een specifiek merk."
-    materialen = (
-        db.session.query(materiaal, item)
-        .join(item, materiaal.materiaal_id == item.materiaal_id)
-        .filter(materiaal.merk == merknaam)
+        .join(Item)
+        .group_by(Material.brand, Material.material_type)
         .all()
     )
-    # Nu structuren per type voor overzicht in UI
-    types = {}
-    for mat, itm in materialen: 
-        if mat.type not in types:
-            types[mat.type] = []
-        types[mat.type].append({"omschrijving": mat.omschrijving, "doel": itm.doel, "verpakking": itm.verpakking, "zone": itm.zone, "aantal": itm.aantal})
 
-    return render_template('merk_detail.html', merknaam=merknaam, types=types)
-#Wat er exact gebeurd: join combineert de tabellen materiaal en item, filter selecteert een gekozen merk, we krijgen een lijst 
-#van tuples (materiaal, item). Daarna structureren we de data per type materiaal voor overzichtelijkheid.
+    brand_groups = {}
+    for brand, mat_type, count in type_stats:
+        if brand not in brand_groups:
+            brand_groups[brand] = {"total": 0, "types": []}
+        brand_groups[brand]["total"] += count
+        brand_groups[brand]["types"].append({
+            "material_type": mat_type,
+            "count": count,
+        })
 
-#Tot hier ben k geraakt nu ben ik er niet zeker van hoe het verder moet. Dit heb ik zo goed mogelijk proberen doen adhv UI prototype.
+    # 2) Items voor de hoofd-lijst
+    query = Item.query.join(Material).join(Zone)
+
+    if active_brand:
+        query = query.filter(Material.brand == active_brand)
+    if active_type:
+        query = query.filter(Material.material_type == active_type)
+
+    items = query.all()
+
+    # Aantal gevonden items (voor de subtitel)
+    item_count = len(items)
+
+    return render_template(
+        'inventory.html',
+        brand_groups=brand_groups,
+        items=items,
+        active_brand=active_brand,
+        active_type=active_type,
+        item_count=item_count,
+    )
+
+
+@main.route('/item/add', methods=['GET', 'POST'])
+def add_item():
+    if request.method == 'POST':
+        material_id = request.form['material_id']
+        zone_name = request.form['zone_name']
+        purpose = request.form['purpose']
+        packaging = request.form['packaging']
+        quantity = int(request.form['quantity'])
+        comment = request.form.get('comment')
+
+        item = Item(
+            material_id=material_id,
+            zone_name=zone_name,
+            purpose=purpose,
+            packaging=packaging,
+            quantity=quantity,
+            comment=comment
+        )
+        db.session.add(item)
+        db.session.commit()
+        return redirect(url_for('main.inventory'))
+
+    return render_template('add_item.html')
+
+@main.route('/item/<int:item_id>/use', methods=['GET', 'POST'])
+def use_item(item_id):
+    item = Item.query.get_or_404(item_id)
+
+    if request.method == 'POST':
+        username = request.form['username']
+        project = request.form.get('project')
+        quantity = int(request.form['quantity'])
+
+        reservation = Reservation(
+            item_id=item.item_id,
+            username=username,
+            quantity=quantity,
+            project=project
+        )
+        db.session.add(reservation)
+        # eventueel: item.quantity -= quantity
+        db.session.commit()
+        return redirect(url_for('main.inventory'))
+
+    return render_template('use_item.html', item=item)

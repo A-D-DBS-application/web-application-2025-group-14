@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Nieuw item</title>
+</head>
+<body>
+    <h1>Nieuw voorraaditem toevoegen</h1>
+
+    <form method="post">
+        Material ID: <input type="number" name="material_id" required><br>
+        Zone: <input type="text" name="zone_name" maxlength="3" required><br>
+        Purpose:
+        <select name="purpose" required>
+            <option value="keep">keep</option>
+            <option value="sell">sell</option>
+            <option value="dispose">dispose</option>
+        </select><br>
+        Packaging:
+        <select name="packaging" required>
+            <option value="open">open</option>
+            <option value="closed">closed</option>
+            <option value="none">none</option>
+        </select><br>
+        Quantity: <input type="number" name="quantity" min="0" required><br>
+        Comment: <input type="text" name="comment"><br>
+        <input type="submit" value="Opslaan">
+    </form>
+
+    <p><a href="{{ url_for('main.inventory') }}">Terug naar overzicht</a></p>
+</body>
+</html>

@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Item gebruiken</title>
+</head>
+<body>
+    <h1>Item gebruiken / reserveren</h1>
+
+    <p>
+        <strong>{{ item.material.description }}</strong>
+        ({{ item.material.material_type }})<br>
+        Merk: {{ item.material.brand }}<br>
+        Zone: {{ item.zone_name }}<br>
+        Beschikbaar: {{ item.quantity }}
+    </p>
+
+    <hr>
+
+    <form method="post">
+        Gebruiker: <input type="text" name="username" required><br>
+        Project: <input type="text" name="project"><br>
+        Aantal: <input type="number" name="quantity" min="1" max="{{ item.quantity }}" required><br>
+        <input type="submit" value="Reserveren">
+    </form>
+
+    <p><a href="{{ url_for('main.inventory') }}">Terug naar overzicht</a></p>
+</body>
+</html>
