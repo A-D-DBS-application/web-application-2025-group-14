@@ -4,7 +4,9 @@ from flask import Blueprint, render_template, request, redirect, url_for
 from sqlalchemy import func
 from sqlalchemy.orm import joinedload
 
-from .models import db, Material, Zone, Item, Reservation
+from .models import db, Material, Zone, Item, Reservation, User, Company
+from flask import session
+
 
 
 main = Blueprint("main", __name__)
@@ -16,6 +18,11 @@ main = Blueprint("main", __name__)
 @main.route("/")
 def inventory():
     """Inventory overview with sidebar, filters and reservations panel."""
+    # Temporary: simulate logged in user (remove once real login exists)
+    if "username" not in session:
+        session["username"] = "Frédéric De Haes" #PAS OP MOET AFH ZIJN VAN LOGIN
+    if "company_name" not in session:
+        session["company_name"] = "Primetals"
 
     # --- Sidebar selection (brand + material) ---
     active_brand = request.args.get("brand")

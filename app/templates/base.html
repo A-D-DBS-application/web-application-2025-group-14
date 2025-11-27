@@ -9,11 +9,11 @@
 <header class="top-header">
     <div class="top-header-inner">
         <div class="top-header-left">
-            Logged in as <strong>Frederic De Haes</strong>
+            Logged in as <strong>{{ session.username }}</strong>
         </div>
 
         <div class="top-header-center">
-            <span class="company">Primetals</span>
+            <span class="company">{{ session.company_name }}</span>
         </div>
 
         <div class="top-header-right">
@@ -25,7 +25,7 @@
 </header>
 
 <div class="app-shell">
-    <aside class="sidebar">
+    <aside class="sidebar {% if body_class == 'no-sidebar' %}hidden{% endif %}">
         <div class="sidebar-header">
             <h2>Brands</h2>
             <p class="sidebar-subtitle">

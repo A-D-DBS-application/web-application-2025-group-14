@@ -854,3 +854,8 @@ body {
     margin-top: 0;          /* standaard h1-margin weg */
     margin-bottom: 18px;    /* eventueel iets kleiner/groter maken */
 }
+
+/* Hide sidebar when no-sidebar is active */
+.sidebar.hidden {
+    display: none;
+}
