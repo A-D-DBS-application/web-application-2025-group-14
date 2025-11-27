@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block body_class %}has-overlay{% endblock %}
+
+{% block title %}Use item{% endblock %}
+
+{% block content %}
+<div class="overlay-page">
+    <div class="overlay-card">
+        <h1 class="page-title">Use item</h1>
+
+        <p>
+            <strong>{{ item.material.brand }} — {{ item.material.material_type }}</strong><br>
+            {{ item.material.description }}<br>
+            Available: {{ item.quantity }}
+        </p>
+
+        <form method="post" class="filter-form" style="max-width:360px;">
+            <label>
+                User
+                <input type="text" name="username" required>
+            </label>
+            <label>
+                Project
+                <input type="text" name="project">
+            </label>
+            <label>
+                Quantity
+                <input type="number" name="quantity" min="1" max="{{ item.quantity }}" required>
+            </label>
+
+            <div class="filter-actions">
+                <button type="submit" class="btn-primary">Add reservation</button>
+
+                {# <<< HIER zit de belangrijke wijziging >>> #}
+                <a href="{{ url_for('main.inventory',
+                                    brand=request.args.get('brand'),
+                                    material_id=request.args.get('material_id')) }}"
+                   class="btn-secondary">
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

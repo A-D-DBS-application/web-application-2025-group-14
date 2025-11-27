@@ -1,9 +1,358 @@
-from flask import Blueprint, request, redirect, url_for, render_template, session
+from flask import Blueprint, request, redirect, url_for, render_template
 from .models import db, Material, Zone, Item, Reservation
-
 from sqlalchemy import func
-
+from sqlalchemy.orm import joinedload
+from datetime import datetime
 
 main = Blueprint('main', __name__)
 
-#Bovenstaande code niet aanpassen!!!
+# Bovenstaande code niet aanpassen!!!
+
+@main.route("/")
+def inventory():
+    # Basis-selectie uit sidebar
+    active_brand = request.args.get("brand")
+    active_material_id = request.args.get("material_id", type=int)
+
+    # Filters uit het zoek-paneel
+    q_type = request.args.get("q_type") or ""
+    q_desc = request.args.get("q_desc") or ""
+    q_brand = request.args.get("q_brand") or ""
+    q_zone = request.args.get("q_zone") or ""
+    q_lifecycle = request.args.get("q_lifecycle") or ""
+    filter_purpose = request.args.get("filter_purpose") or ""
+    filter_packaging = request.args.get("filter_packaging") or ""
+
+    # 1) Merken + materials ("type — description") voor de sidebar
+    material_stats = (
+        db.session.query(
+            Material,
+            func.count(Item.item_id).label("item_count"),
+        )
+        .outerjoin(Item)
+        .group_by(Material.material_id)
+        .order_by(Material.brand, Material.material_type)
+        .all()
+    )
+
+    brands_dict = {}
+    for material, item_count in material_stats:
+        brand_name = material.brand
+        if brand_name not in brands_dict:
+            brands_dict[brand_name] = {
+                "name": brand_name,
+                "material_count": 0,
+                "materials": [],
+            }
+
+        brands_dict[brand_name]["material_count"] += item_count
+        brands_dict[brand_name]["materials"].append(
+            {
+                "id": material.material_id,
+                "type": material.material_type,
+                "description": material.description,
+                "item_count": item_count,
+            }
+        )
+
+    brands = list(brands_dict.values())
+
+    # 2) Items voor de hoofd-lijst
+    query = Item.query.join(Material).join(Zone)
+
+    # selectie via sidebar
+    if active_brand:
+        query = query.filter(Material.brand == active_brand)
+    if active_material_id:
+        query = query.filter(Item.material_id == active_material_id)
+
+    # filters via zoek-paneel
+    if q_type:
+        query = query.filter(Material.material_type.ilike(f"%{q_type}%"))
+    if q_desc:
+        query = query.filter(Material.description.ilike(f"%{q_desc}%"))
+    if q_brand:
+        query = query.filter(Material.brand.ilike(f"%{q_brand}%"))
+    if q_zone:
+        query = query.filter(Zone.zone_name.ilike(f"%{q_zone}%"))
+    if q_lifecycle:
+        query = query.filter(Material.lifecycle.ilike(f"%{q_lifecycle}%"))
+    if filter_purpose:
+        query = query.filter(Item.purpose == filter_purpose)
+    if filter_packaging:
+        query = query.filter(Item.packaging == filter_packaging)
+
+    items = query.order_by(Material.brand, Material.material_type).all()
+    item_count = len(items)
+
+    # 3) Actief materiaal (voor titel bovenaan)
+    active_material = None
+    if active_material_id:
+        active_material = Material.query.get(active_material_id)
+
+    # 4) Reserved totals per item (voor de blauwe link)
+    reserved_totals = {
+        item.item_id: sum(r.quantity for r in item.reservations) for item in items
+    }
+
+    # 5) Alle reservaties (voor het winkelmandje-paneel)
+    reservations_raw = (
+        db.session.query(Reservation, Item, Material, Zone)
+        .join(Item, Reservation.item_id == Item.item_id)
+        .join(Material, Item.material_id == Material.material_id)
+        .join(Zone, Item.zone_id == Zone.zone_id)
+        .order_by(Reservation.date.desc())
+        .all()
+    )
+
+    reservations_list = []
+    for r, item, mat, zone in reservations_raw:
+        reservations_list.append(
+            {
+                "item_id": item.item_id,
+                "brand": mat.brand,
+                "type": mat.material_type,
+                "description": mat.description,
+                "zone": zone.zone_name,
+                "username": r.username,
+                "project": r.project,
+                "date": r.date,
+                "quantity": r.quantity,
+            }
+        )
+
+    # Zones voor add/edit forms
+    zones = Zone.query.order_by(Zone.zone_name).all()
+
+    return render_template(
+        "inventory.html",
+        brands=brands,
+        items=items,
+        active_brand=active_brand,
+        active_material=active_material,
+        active_material_id=active_material_id,
+        item_count=item_count,
+        reserved_totals=reserved_totals,
+        reservations_list=reservations_list,
+        zones=zones,
+        # filters terug naar template
+        q_type=q_type,
+        q_desc=q_desc,
+        q_brand=q_brand,
+        q_zone=q_zone,
+        q_lifecycle=q_lifecycle,
+        filter_purpose=filter_purpose,
+        filter_packaging=filter_packaging,
+    )
+
+
+@main.route('/item/add', methods=['GET', 'POST'])
+def add_item():
+    if request.method == 'POST':
+        # ====== Material gegevens ======
+        company_name = 'Primetals'   # voor jullie project mag dit hardcoded
+        brand = request.form['brand'].strip()
+        material_type = request.form['material_type'].strip()
+        description = request.form['description'].strip()
+        lifecycle = request.form.get('lifecycle') or None
+
+        price_raw = request.form.get('price')
+        price = float(price_raw.replace(',', '.')) if price_raw else None
+
+        # Bestaat dit materiaal al? (zelfde company + type + description)
+        material = Material.query.filter_by(
+            company_name=company_name,
+            material_type=material_type,
+            description=description
+        ).first()
+
+        if material is None:
+            material = Material(
+                company_name=company_name,
+                brand=brand,
+                material_type=material_type,
+                description=description,
+                lifecycle=lifecycle,
+                price=price
+            )
+            db.session.add(material)
+            db.session.flush()  # geeft material.material_id
+        else:
+            # optioneel bijwerken
+            material.brand = brand
+            material.lifecycle = lifecycle
+            material.price = price
+
+        # ====== Zone (vrij invulbaar) ======
+        zone_name = request.form['zone_name'].strip().upper()
+        zone = Zone.query.filter_by(
+            company_name=company_name,
+            zone_name=zone_name
+        ).first()
+
+        if zone is None:
+            zone = Zone(zone_name=zone_name, company_name=company_name)
+            db.session.add(zone)
+            db.session.flush()  # zone.zone_id
+
+        # ====== Item ======
+        quantity = int(request.form['quantity'])
+        purpose = request.form['purpose']
+        packaging = request.form['packaging']
+        comment = request.form.get('comment') or None
+
+        item = Item(
+            material_id=material.material_id,
+            zone_id=zone.zone_id,
+            purpose=purpose,
+            packaging=packaging,
+            quantity=quantity,
+            comment=comment
+        )
+        db.session.add(item)
+        db.session.commit()
+
+        return redirect(url_for(
+            'main.inventory',
+            brand=material.brand,
+            material_id=material.material_id
+        ))
+
+    return render_template('add_item.html')
+
+
+@main.route('/item/<int:item_id>/use', methods=['GET', 'POST'])
+def use_item(item_id):
+    item = Item.query.get_or_404(item_id)
+
+    if request.method == 'POST':
+        username = request.form['username']
+        project = request.form.get('project') or None
+        quantity = int(request.form['quantity'])
+
+        reservation = Reservation(
+            item_id=item.item_id,
+            username=username,
+            quantity=quantity,
+            project=project
+        )
+        db.session.add(reservation)
+        db.session.commit()
+
+        # TERUG naar dezelfde brand + material
+        return redirect(url_for(
+            'main.inventory',
+            brand=request.args.get('brand'),
+            material_id=request.args.get('material_id')
+        ))
+
+    return render_template('use_item.html', item=item)
+
+
+
+
+@main.route("/item/<int:item_id>/quantity", methods=["POST"])
+def update_quantity(item_id):
+    """Wordt aangeroepen door het Quantity-formulier in inventory.html."""
+    item = Item.query.get_or_404(item_id)
+    new_quantity = int(request.form["quantity"])
+    if new_quantity < 0:
+        new_quantity = 0
+    item.quantity = new_quantity
+    db.session.commit()
+
+    brand = request.args.get("brand")
+    material_id = request.args.get("material_id")
+    return redirect(url_for("main.inventory", brand=brand, material_id=material_id))
+
+
+@main.route("/material/<int:material_id>/edit", methods=["GET", "POST"])
+def edit_material(material_id):
+    material = Material.query.get_or_404(material_id)
+
+    if request.method == "POST":
+        material.brand = request.form["brand"]
+        material.material_type = request.form["material_type"]
+        material.description = request.form["description"]
+        material.lifecycle = request.form.get("lifecycle") or None
+        price_raw = request.form.get("price")
+        material.price = float(price_raw) if price_raw else None
+
+        db.session.commit()
+        return redirect(
+            url_for(
+                "main.inventory",
+                brand=material.brand,
+                material_id=material.material_id,
+            )
+        )
+
+    return render_template("edit_material.html", material=material)
+
+
+@main.route('/item/<int:item_id>/edit', methods=['GET', 'POST'])
+def edit_item(item_id):
+    item = (
+        Item.query
+        .options(
+            joinedload(Item.material),
+            joinedload(Item.zone)
+        )
+        .get_or_404(item_id)
+    )
+
+    if request.method == 'POST':
+        # Zone vrij invulbaar: zoek zone, maak aan als ze nog niet bestaat
+        zone_name = request.form['zone_name'].strip().upper()
+
+        company_name = item.material.company_name  # zelfde company als materiaal
+        zone = Zone.query.filter_by(
+            company_name=company_name,
+            zone_name=zone_name
+        ).first()
+
+        if zone is None:
+            zone = Zone(zone_name=zone_name, company_name=company_name)
+            db.session.add(zone)
+            db.session.flush()  # geeft zone.zone_id
+
+        item.zone_id = zone.zone_id
+
+        # overige velden
+        item.purpose = request.form['purpose']
+        item.packaging = request.form['packaging']
+        item.comment = request.form.get('comment') or None
+
+        db.session.commit()
+
+        return redirect(url_for(
+            'main.inventory',
+            brand=item.material.brand,
+            material_id=item.material_id
+        ))
+
+    return render_template('edit_item.html', item=item)
+
+@main.route("/reservation/delete", methods=["POST"])
+def delete_reservation():
+    """Verwijder één reservation en keer terug naar dezelfde brand/material."""
+    item_id = int(request.form["item_id"])
+    username = request.form["username"]
+    # date komt als ISO-string uit de template
+    date_str = request.form["date"]
+    date = datetime.fromisoformat(date_str)
+
+    reservation = Reservation.query.filter_by(
+        item_id=item_id,
+        username=username,
+        date=date,
+    ).first_or_404()
+
+    db.session.delete(reservation)
+    db.session.commit()
+
+    # context bewaren
+    brand = request.form.get("brand")
+    material_id = request.form.get("material_id")
+
+    return redirect(url_for("main.inventory", brand=brand, material_id=material_id))

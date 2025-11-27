@@ -1,0 +1,856 @@
+/* === Global === */
+body {
+    margin: 0;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #f5f5f7;
+    color: #111827;
+}
+
+/* === Top header === */
+.top-header {
+    background: #111827;
+    color: #f9fafb;
+    padding: 8px 20px;
+}
+
+.top-header-inner {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.app-title {
+    font-weight: 600;
+}
+
+/* === Layout === */
+.app-shell {
+    display: grid;
+    grid-template-columns: 921px 1fr; /* extra breedte voor brand + type/description */
+    min-height: calc(100vh - 44px);
+}
+
+
+.sidebar {
+    background: #ffffff;
+    border-right: 1px solid #e5e7eb;
+    padding: 16px 12px;
+}
+
+.main {
+    padding: 24px 32px;
+    background: #f9fafb;
+}
+
+.main-header {
+    margin-bottom: 12px;
+}
+
+/* === Sidebar === */
+.sidebar-header h2 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.sidebar-subtitle {
+    margin: 4px 0 12px;
+    font-size: 12px;
+    color: #6b7280;
+}
+
+.brand-list,
+.type-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.brand-item { margin-bottom: 8px; }
+
+.brand-button {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 10px;
+    border-radius: 999px;
+    border: none;
+    background: #f3f4f6;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.brand-button.active {
+    background: #111827;
+    color: #f9fafb;
+}
+
+.brand-count {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.08);
+}
+
+.type-item {
+    margin-top: 4px;
+    margin-left: 16px;
+}
+
+.type-link {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    text-decoration: none;
+    color: #111827;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+}
+
+.type-link.active {
+    background: #111827;
+    color: #f9fafb;
+}
+
+.type-line {
+    flex: 1;
+    padding-right: 8px;
+    text-align: left;
+}
+
+/* === Top bar in main === */
+.top-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+}
+
+.top-bar-left {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.subtitle {
+    margin: 0;
+    font-size: 13px;
+    color: #6b7280;
+}
+
+.top-bar-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.icon-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 999px;
+    border: 1px solid #e5e7eb;
+    background: #ffffff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    cursor: pointer;
+}
+
+.icon-btn:hover { background: #f3f4f6; }
+
+/* === Item cards === */
+.item-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 20px;
+}
+
+.item-card {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 16px 20px;
+    border-radius: 16px;
+    border: 1px solid #e5e7eb;
+    background: #ffffff;
+}
+
+.item-main { flex: 1; }
+
+.item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.item-title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.item-subtitle {
+    margin: 4px 0 8px;
+    font-size: 12px;
+    color: #6b7280;
+}
+
+.item-header-actions {
+    display: flex;
+    gap: 4px;
+}
+
+.icon-small {
+    width: 24px;
+    height: 24px;
+    border-radius: 999px;
+    border: 1px solid #e5e7eb;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    text-decoration: none;
+    color: inherit;
+    background: #fff;
+}
+
+.item-meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    font-size: 13px;
+    color: #374151;
+    margin-top: 6px;
+}
+
+.quantity-form {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 4px;
+}
+
+.quantity-form input[type="number"] {
+    width: 46px;
+    padding: 2px 4px;
+    border-radius: 6px;
+    border: 1px solid #d1d5db;
+    font-size: 13px;
+}
+
+.quantity-save {
+    padding: 2px 8px;
+    border-radius: 999px;
+    border: none;
+    background: #111827;
+    color: #f9fafb;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.link-button {
+    border: none;
+    background: none;
+    padding: 0;
+    margin-left: 4px;
+    font-size: 13px;
+    color: #2563eb;
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+.btn-link {
+    border: none;
+    background: none;
+    padding: 0;
+    margin-top: 8px;
+    font-size: 12px;
+    color: #4b5563;
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+/* Details */
+.item-details {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed #e5e7eb;
+    display: none;
+    font-size: 13px;
+}
+
+.item-details.open {
+    display: block;
+}
+
+/* Actions rechts */
+.item-actions {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.btn-primary {
+    padding: 8px 16px;
+    border-radius: 999px;
+    border: none;
+    background: #111827;
+    color: #f9fafb;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.btn-secondary {
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 999px;
+    border: 1px solid #d1d5db;
+    background: #ffffff;
+    color: #111827;
+    font-size: 13px;
+    text-decoration: none;
+}
+
+/* === Modals (per item reservations, use item, etc.) === */
+.modal {
+    position: fixed;
+    inset: 0;
+    display: none;
+    z-index: 50;
+}
+
+.modal.is-open { display: block; }
+
+.modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.45);
+}
+
+.modal-dialog {
+    position: relative;
+    max-width: 520px;
+    margin: 80px auto;
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 16px 20px 20px;
+    box-shadow: 0 10px 40px rgba(15, 23, 42, 0.2);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.modal-close {
+    border: none;
+    background: none;
+    font-size: 20px;
+    cursor: pointer;
+}
+
+/* Reservations drawer (rechts) */
+.reservations-drawer {
+    position: fixed;
+    top: 56px;           /* net onder de zwarte topbar */
+    right: 0;
+    bottom: 0;
+    width: 520px;        /* breder dan vroeger */
+    background: #ffffff;
+    border-left: 1px solid #e5e7eb;
+    box-shadow: -8px 0 24px rgba(15, 23, 42, 0.15);
+    padding: 24px;
+    overflow-y: auto;
+    z-index: 50;
+}
+
+.reservations-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.reservations-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+.reservations-table th,
+.reservations-table td {
+    padding: 8px 4px;
+    vertical-align: top;
+}
+
+.reservations-table tbody tr + tr {
+    border-top: 1px solid #e5e7eb;
+}
+
+/* delete-knop in de tabel */
+.reservation-delete-form {
+    margin: 0;
+}
+
+.reservation-delete-btn {
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    padding: 4px;
+}
+
+
+/* === Side panels (search, reservations) === */
+.side-panel {
+    position: fixed;
+    inset: 0;
+    display: none;
+    z-index: 40;
+}
+
+
+.side-panel.is-open { display: block; }
+
+.panel-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.35);
+}
+
+.panel-content {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 560px;
+    max-width: 90vw;
+    height: 100%;
+    background: #ffffff;
+    padding: 16px 20px;
+    box-shadow: -4px 0 20px rgba(15, 23, 42, 0.15);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.panel-close {
+    border: none;
+    background: none;
+    font-size: 20px;
+    cursor: pointer;
+}
+
+.filter-form {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 13px;
+}
+
+.filter-form label {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.filter-form input,
+.filter-form select {
+    padding: 6px 8px;
+    border-radius: 8px;
+    border: 1px solid #d1d5db;
+    font-size: 13px;
+}
+
+.filter-actions {
+    margin-top: 8px;
+    display: flex;
+    gap: 8px;
+}
+
+.muted {
+    color: #6b7280;
+    font-size: 12px;
+}
+
+/* --------------------------------------- */
+/* Fullscreen right-side Reservations panel */
+/* --------------------------------------- */
+
+#reservations-panel {
+    position: fixed;
+    top: 56px;                 /* zwarte bovenbalk */
+    right: 0;
+    bottom: 0;
+    width: 100%;               /* neemt volledige breedte in */
+    max-width: none;
+    z-index: 200;              /* boven alles */
+}
+
+#reservations-panel .panel-content {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 768px;              /* <<< kies breedte zoals Figma: 800–1100 */
+    max-width: 100%;
+    height: 100%;
+    overflow-y: auto;
+    background: #ffffff;
+    padding: 32px 40px;        /* Figma spacing */
+    box-shadow: -10px 0 25px rgba(0,0,0,0.15); /* mooie shadow links */
+    border-left: 1px solid #e5e7eb;
+}
+
+/* donkere overlay links (achtergrond) */
+#reservations-panel .panel-backdrop {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: calc(100% - 0px);  /* zelfde als panel-width */
+    height: 100%;
+    background: rgba(0,0,0,0.25);
+}
+
+/* --- Generic form page layout (Add / Edit / Use) --- */
+.form-page {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 24px 0 40px;
+}
+
+.page-title {
+    margin-bottom: 20px;
+    font-size: 28px;
+    font-weight: 700;
+}
+
+.form-card {
+    background: #ffffff;
+    border-radius: 16px;
+    border: 1px solid #e5e7eb;
+    padding: 24px 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.form-card-wide {
+    width: 100%;
+}
+
+.form-section {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.section-title {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+/* two-column grid inside sections */
+.form-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px 24px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 13px;
+}
+
+.form-group label {
+    font-weight: 500;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    font: inherit;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid #d1d5db;
+}
+
+.form-group textarea {
+    resize: vertical;
+    min-height: 64px;
+}
+
+.form-group.full-width {
+    grid-column: 1 / -1;
+}
+
+.form-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 8px;
+}
+
+/* als je al btn-primary/secondary had, laat deze gerust staan
+   of verwijder onderstaande doublures */
+.btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 16px;
+    border-radius: 999px;
+    border: 1px solid #d1d5db;
+    background: #ffffff;
+    font-size: 13px;
+    text-decoration: none;
+    color: #111827;
+    cursor: pointer;
+}
+
+/* === Make Description & Comment much smaller === */
+.form-group textarea.compact-text {
+    height: 34px;       /* actual visible height */
+    min-height: 34px;
+    max-height: 60px;
+    padding-top: 6px;
+    padding-bottom: 6px;
+    resize: vertical;   /* user can still drag it bigger if needed */
+}
+
+/* Tighten vertical spacing so the whole form fits on one screen */
+.form-card.form-card-wide {
+    padding: 18px 22px;
+    gap: 16px;
+}
+
+.form-section {
+    gap: 10px;
+}
+
+.form-grid-2 {
+    gap: 10px 18px;
+}
+
+.main-title {
+    font-size: 24px;
+    margin: 0 0 2px;
+    font-weight: 600;
+}
+
+.item-actions {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-end;
+    gap: 8px;
+}
+
+.item-actions-top {
+    display: flex;
+    gap: 4px;
+}
+
+/* ===== Title row with material edit icon ===== */
+.title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.title-row h1 {
+    margin: 0;
+}
+
+.title-row .title-edit {
+    border-radius: 999px;
+    border: 1px solid #e5e7eb;
+    padding: 4px;
+}
+
+/* ===== Item card layout tweaks ===== */
+.item-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+}
+
+.item-main {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.item-actions {
+    flex: 0 0 150px;          /* meer vaste ruimte rechts (geel) */
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: flex-start;
+    gap: 8px;
+}
+
+.item-actions-secondary {
+    display: flex;
+    gap: 8px;
+}
+
+/* Titel bovenaan inventory kleiner maken */
+.main-header h1 {
+    font-size: 18px;      /* bv. 22px i.p.v. ~32px standaard */
+    font-weight: 600;
+    margin: 0 0 4px;      /* beetje minder witruimte eronder */
+    line-height: 1.2;
+}
+
+/* Sidebar: type — description grootte verkleinen */
+.type-line {
+    font-size: 10px;          /* kleiner */
+    line-height: 1.25;        /* compacter */
+    white-space: normal;      /* laat omschrijving wrap */
+    text-align: left;
+}
+
+/* Als je description nog iets subtieler wil */
+.type-line small {
+    font-size: 12px;
+    opacity: 0.75;
+}
+
+/* TYPE (bovenaan) */
+.type-text {
+    font-size: 11px;          /* iets groter */
+    font-weight: 100;         /* bold-ish */
+    color: #111;              /* donker */
+    line-height: 1.15;
+}
+
+/* DESCRIPTION (eronder) */
+.desc-text {
+    font-size: 10px;          /* kleiner */
+    color: #555;              /* grijs */
+    opacity: 0.9;
+    line-height: 1.15;
+    white-space: normal;      /* wrap op meerdere lijnen */
+}
+
+.type-item {
+    margin: 0;              /* geen extra margin */
+    padding: 0px 0;         /* veel compacter */
+}
+
+.title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.icon-small-outline {
+    width: 28px;
+    height: 28px;
+    border-radius: 999px;
+    border: 1px solid #e5e7eb;
+    background: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.icon-small-outline:hover {
+    background: #f3f4f6;
+}
+
+/* Links zelf: iets lichter bij selectie, NIET pikzwart meer */
+.type-link {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    text-decoration: none;
+    color: #111827;
+    background: transparent;
+}
+
+/* Geselecteerd: lichtgrijze chip zodat tekst leesbaar blijft */
+.type-link.active {
+    background: #e5e7eb;
+    color: #111827;
+}
+
+/* Geselecteerd: description iets donkerder */
+.type-link.active .type-desc {
+    color: #374151;
+}
+
+.item-meta-spacing {
+    margin-bottom: 10px !important;
+}
+
+/* Nog compacter add/edit/use forms */
+.form-page {
+    max-width: 680px;       /* iets smaller, dan is alles korter en hoger */
+    margin: 0 auto;
+    padding: 16px 0 24px;   /* minder verticale padding */
+}
+
+.page-title {
+    margin-bottom: 12px;
+    font-size: 24px;        /* iets kleiner */
+}
+
+.form-card.form-card-wide {
+    padding: 16px 20px;
+    gap: 12px;
+}
+
+.form-section {
+    gap: 8px;
+}
+
+.form-grid-2 {
+    gap: 8px 14px;
+}
+
+/* textarea’s super compact */
+.form-group textarea.compact-text {
+    height: 28px;
+    min-height: 28px;
+    max-height: 48px;
+    padding-top: 4px;
+    padding-bottom: 4px;
+}
+
+/* Formblokken algemeen (add / edit / use) */
+.form-page {
+    padding-top: 10px;      /* was hoger → titel komt dichter tegen de top */
+}
+
+/* Specifiek de titel bovenaan het formulier */
+.page-title {
+    margin-top: 0;          /* standaard h1-margin weg */
+    margin-bottom: 18px;    /* eventueel iets kleiner/groter maken */
+}

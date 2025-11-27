@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block body_class %}has-overlay{% endblock %}
+
+
+{% block title %}Edit material{% endblock %}
+
+{% block content %}
+<h1>Edit material</h1>
+
+<form method="post" class="filter-form" style="max-width:400px;">
+    <label>
+        Brand
+        <input type="text" name="brand" value="{{ material.brand }}" required>
+    </label>
+    <label>
+        Type
+        <input type="text" name="material_type" value="{{ material.material_type }}" required>
+    </label>
+    <label>
+        Description
+        <textarea name="description" rows="3" required>{{ material.description }}</textarea>
+    </label>
+    <label>
+        Lifecycle
+        <input type="text" name="lifecycle" value="{{ material.lifecycle or '' }}">
+    </label>
+    <label>
+        Price (€)
+        <input type="number" step="0.01" name="price"
+               value="{{ material.price if material.price is not none }}">
+    </label>
+
+    <div class="filter-actions">
+        <button type="submit" class="btn-primary">Save</button>
+        <a href="{{ url_for('main.inventory', brand=material.brand, material_id=material.material_id) }}"
+           class="btn-secondary">Cancel</a>
+    </div>
+</form>
+{% endblock %}

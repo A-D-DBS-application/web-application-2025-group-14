@@ -1,0 +1,337 @@
+{% extends "base.html" %}
+
+{% block title %}Inventory{% endblock %}
+
+{# ---------- SIDEBAR: BRANDS + TYPE-DESCRIPTION ---------- #}
+{% block sidebar %}
+<ul class="brand-list">
+    {% for brand_block in brands %}
+        <li class="brand-item">
+            <form method="get" style="margin:0;">
+                <input type="hidden" name="brand" value="{{ brand_block.name }}">
+                <button type="submit"
+                        class="brand-button {% if brand_block.name == active_brand %}active{% endif %}">
+                    <span>{{ brand_block.name }}</span>
+                    <span class="brand-count">{{ brand_block.material_count }}</span>
+                </button>
+            </form>
+
+            {% if brand_block.name == active_brand %}
+                <ul class="type-list">
+                    {% for m in brand_block.materials %}
+                        <li class="type-item">
+                            <form method="get" style="margin:0;">
+                                <input type="hidden" name="brand" value="{{ brand_block.name }}">
+                                <input type="hidden" name="material_id" value="{{ m.id }}">
+                                <button type="submit"
+                                        class="type-link {% if m.id == active_material_id %}active{% endif %}">
+                                    <span class="type-line">
+                                        <span class="type-text">{{ m.type }}</span>
+                                        <span> ~ </span>
+                                        <span class="desc-text">{{ m.description }}</span>
+                                    </span>
+                                    <span class="brand-count">{{ m.item_count }}</span>
+                                </button>
+                            </form>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+        </li>
+    {% endfor %}
+</ul>
+{% endblock %}
+
+{# ---------- HEADER: TITLE + ICON BUTTONS ---------- #}
+{% block header %}
+<div class="top-bar">
+    <div class="top-bar-left">
+        <div class="title-row">
+            <h1 class="page-title">
+                {% if active_brand %}
+                    {{ active_brand }}
+                    {% if active_material %}
+                        — {{ active_material.material_type }}
+                    {% endif %}
+                {% else %}
+                    Inventory
+                {% endif %}
+            </h1>
+
+            {# Edit material-knop naast de titel #}
+            {% if active_material %}
+                <a href="{{ url_for('main.edit_material',
+                                    material_id=active_material.material_id) }}"
+                   class="icon-small icon-small-outline"
+                   title="Edit material">
+                    ✎
+                </a>
+            {% endif %}
+        </div>
+
+        <p class="subtitle">{{ item_count }} items found</p>
+    </div>
+{% endblock %}
+
+{# ---------- MAIN CONTENT: ITEM CARDS ---------- #}
+{% block content %}
+<div class="item-list">
+    {% for item in items %}
+        {% set reserved_total = reserved_totals.get(item.item_id, 0) %}
+        <article class="item-card">
+            <div class="item-main">
+                <div class="item-meta-row item-meta-spacing">
+                    <span><strong>Purpose:</strong> {{ item.purpose }}</span>
+                    <span><strong>Packaging:</strong> {{ item.packaging }}</span>
+                    <span><strong>Zone:</strong> {{ item.zone.zone_name }}</span>
+                </div>
+
+                <div class="item-meta-row">
+                    <span class="quantity-block">
+                        <strong>Quantity:</strong>
+                        <form class="quantity-form"
+                              method="post"
+                              action="{{ url_for('main.update_quantity',
+                                                 item_id=item.item_id,
+                                                 brand=active_brand,
+                                                 material_id=active_material_id) }}">
+                            <input type="number"
+                                   name="quantity"
+                                   min="0"
+                                   value="{{ item.quantity }}">
+                            <button type="submit" class="quantity-save">Save</button>
+                        </form>
+                    </span>
+
+                    <span class="reserved-block">
+                        <strong>Reserved quantity:</strong>
+                        <button type="button"
+                                class="link-button reserved-link"
+                                data-modal-target="reservations-{{ item.item_id }}">
+                            {{ reserved_total }}
+                        </button>
+                    </span>
+                </div>
+
+                <button class="btn-link"
+                        type="button"
+                        data-toggle-details="details-{{ item.item_id }}">
+                    More details
+                </button>
+
+                <div class="item-details" id="details-{{ item.item_id }}">
+                    <div class="item-meta-row">
+                        <span><strong>Price:</strong>
+                            {% if item.material.price is not none %}
+                                € {{ "%.2f"|format(item.material.price) }}
+                            {% else %}
+                                –
+                            {% endif %}
+                        </span>
+                    </div>
+
+                    <div class="item-meta-row">
+                        <span><strong>Lifecycle:</strong>
+                            {{ item.material.lifecycle or "–" }}
+                        </span>
+                    </div>
+
+                    <div class="item-meta-row">
+                        <span><strong>Comment:</strong> {{ item.comment or "No comment" }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="item-actions">
+                {# Use-knop BOVEN de edit-knop #}
+                <form action="{{ url_for('main.use_item',
+                         item_id=item.item_id,
+                         brand=active_brand,
+                         material_id=active_material_id) }}"
+                    method="get">
+                    <button type="submit" class="btn-primary">Reserve</button>
+                </form>
+
+
+                <div class="item-actions-secondary">
+                    <a href="{{ url_for('main.edit_item', item_id=item.item_id) }}"
+                       class="icon-small"
+                       title="Edit item">✎</a>
+                </div>
+            </div>
+        </article>
+
+        {# ---- RESERVATIONS MODAL VOOR DIT ITEM ---- #}
+        <div class="modal" id="reservations-{{ item.item_id }}">
+            <div class="modal-backdrop" data-modal-close></div>
+            <div class="modal-dialog">
+                <div class="modal-header">
+                    <h2>Reservations</h2>
+                    <button type="button" class="modal-close" data-modal-close>×</button>
+                </div>
+                <div class="modal-body">
+                    {% if item.reservations %}
+                        <table class="reservations-table">
+                            <thead>
+                            <tr>
+                                <th>User</th>
+                                <th>Project</th>
+                                <th>Date</th>
+                                <th>Quantity</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            {% for r in item.reservations %}
+                                <tr>
+                                    <td>{{ r.username }}</td>
+                                    <td>{{ r.project or "-" }}</td>
+                                    <td>{{ r.date.strftime("%Y-%m-%d") }}</td>
+                                    <td>{{ r.quantity }}</td>
+                                </tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                    {% else %}
+                        <p>No reservations for this item.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    {% endfor %}
+</div>
+
+{# ---------- SEARCH & FILTER PANEL (rechts) ---------- #}
+<aside class="side-panel" id="filter-panel">
+    <div class="panel-backdrop" data-panel-close></div>
+    <div class="panel-content">
+        <header class="panel-header">
+            <h2>Search & Filter</h2>
+            <button type="button" class="panel-close" data-panel-close>×</button>
+        </header>
+
+        <form method="get" class="filter-form">
+            <label>
+                Type
+                <input type="text" name="q_type" placeholder="Search type..."
+                       value="{{ q_type }}">
+            </label>
+
+            <label>
+                Description
+                <input type="text" name="q_desc" placeholder="Search description..."
+                       value="{{ q_desc }}">
+            </label>
+
+            <label>
+                Brand
+                <input type="text" name="q_brand" placeholder="Search brand..."
+                       value="{{ q_brand }}">
+            </label>
+
+            <label>
+                Zone
+                <input type="text" name="q_zone" placeholder="Search zone..."
+                       value="{{ q_zone }}">
+            </label>
+
+            <label>
+                Lifecycle
+                <input type="text" name="q_lifecycle" placeholder="Search lifecycle..."
+                       value="{{ q_lifecycle }}">
+            </label>
+
+            <label>
+                Purpose
+                <select name="filter_purpose">
+                    <option value="">All purposes</option>
+                    <option value="keep"   {% if filter_purpose == 'keep' %}selected{% endif %}>keep</option>
+                    <option value="sell"   {% if filter_purpose == 'sell' %}selected{% endif %}>sell</option>
+                    <option value="dispose"{% if filter_purpose == 'dispose' %}selected{% endif %}>dispose</option>
+                </select>
+            </label>
+
+            <label>
+                Packaging
+                <select name="filter_packaging">
+                    <option value="">All packaging</option>
+                    <option value="open"   {% if filter_packaging == 'open' %}selected{% endif %}>open</option>
+                    <option value="closed" {% if filter_packaging == 'closed' %}selected{% endif %}>closed</option>
+                    <option value="none"   {% if filter_packaging == 'none' %}selected{% endif %}>none</option>
+                </select>
+            </label>
+
+            {% if active_brand %}
+                <input type="hidden" name="brand" value="{{ active_brand }}">
+            {% endif %}
+            {% if active_material_id %}
+                <input type="hidden" name="material_id" value="{{ active_material_id }}">
+            {% endif %}
+
+            <div class="filter-actions">
+                <button type="submit" class="btn-primary">Apply filters</button>
+                <a href="{{ url_for('main.inventory') }}" class="btn-secondary">Clear</a>
+            </div>
+        </form>
+    </div>
+</aside>
+
+{# ---------- RESERVATIONS PANEL (winkelmandje) ---------- #}
+<aside class="side-panel side-panel-wide" id="reservations-panel">
+    <div class="panel-backdrop" data-panel-close></div>
+    <div class="panel-content">
+        <header class="panel-header">
+            <h2>Reservations</h2>
+            <button type="button" class="panel-close" data-panel-close>×</button>
+        </header>
+
+        {% if reservations_list %}
+            <table class="reservations-table">
+                <thead>
+                <tr>
+                    <th>Item</th>
+                    <th>Project</th>
+                    <th>Date</th>
+                    <th>Qty</th>
+                    <th></th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for r in reservations_list %}
+                    <tr>
+                        <td>
+                            <strong>{{ r.brand }} – {{ r.type }}</strong><br>
+                            Zone {{ r.zone }}
+                        </td>
+                        <td>{{ r.project or '-' }}</td>
+                        <td>{{ r.date.strftime("%Y-%m-%d") }}</td>
+                        <td>{{ r.quantity }}</td>
+                        <td>
+                            <form method="post"
+                                  action="{{ url_for('main.delete_reservation') }}"
+                                  class="reservation-delete-form">
+                                <input type="hidden" name="item_id" value="{{ r.item_id }}">
+                                <input type="hidden" name="username" value="{{ r.username }}">
+                                <input type="hidden" name="date" value="{{ r.date.isoformat() }}">
+                                {% if active_brand %}
+                                    <input type="hidden" name="brand" value="{{ active_brand }}">
+                                {% endif %}
+                                {% if active_material_id %}
+                                    <input type="hidden" name="material_id" value="{{ active_material_id }}">
+                                {% endif %}
+                                <button type="submit"
+                                        class="reservation-delete-btn"
+                                        title="Delete reservation">
+                                    🗑
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p class="muted">You have no reservations.</p>
+        {% endif %}
+    </div>
+</aside>
+{% endblock %}
