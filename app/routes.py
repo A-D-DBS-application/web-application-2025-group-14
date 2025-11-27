@@ -37,13 +37,21 @@ def inventory():
     filter_purpose = request.args.get("filter_purpose") or ""
     filter_packaging = request.args.get("filter_packaging") or ""
 
+    # Get company_name from session (required per Pasop.md)
+    company_name = session.get("company_name")
+    if not company_name:
+        # Fallback if session not set (shouldn't happen in production)
+        company_name = "Primetals"
+    
     # --- 1) Brands + materials ("type — description") for the sidebar ---
+    # Filter by company_name as per Pasop.md business rules
     material_stats = (
         db.session.query(
             Material,
             func.count(Item.item_id).label("item_count"),
         )
         .outerjoin(Item)
+        .filter(Material.company_name == company_name)
         .group_by(Material.material_id)
         .order_by(Material.brand, Material.material_type)
         .all()
@@ -72,7 +80,13 @@ def inventory():
     brands = list(brands_dict.values())
 
     # --- 2) Items for the main list ---
-    query = Item.query.join(Material).join(Zone)
+    # Filter by company_name as per Pasop.md business rules
+    query = (
+        Item.query
+        .join(Material)
+        .join(Zone)
+        .filter(Material.company_name == company_name)
+    )
 
     # selection via sidebar
     if active_brand:
@@ -111,11 +125,13 @@ def inventory():
     }
 
     # --- 5) All reservations (for the cart panel) ---
+    # Filter by company_name as per Pasop.md business rules
     reservations_raw = (
         db.session.query(Reservation, Item, Material, Zone)
         .join(Item, Reservation.item_id == Item.item_id)
         .join(Material, Item.material_id == Material.material_id)
         .join(Zone, Item.zone_id == Zone.zone_id)
+        .filter(Material.company_name == company_name)
         .order_by(Reservation.date.desc())
         .all()
     )
@@ -136,7 +152,8 @@ def inventory():
     ]
 
     # Zones are useful for forms; you already use them in the UI
-    zones = Zone.query.order_by(Zone.zone_name).all()
+    # Filter by company_name as per Pasop.md business rules
+    zones = Zone.query.filter_by(company_name=company_name).order_by(Zone.zone_name).all()
 
     return render_template(
         "inventory.html",
@@ -399,4 +416,74 @@ def delete_reservation():
     material_id = request.form.get("material_id")
 
     return redirect(url_for("main.inventory", brand=brand, material_id=material_id))
+
+
+# ---------------------------------------------------------------------------
+# SEARCH INVENTORY
+# ---------------------------------------------------------------------------
+@main.route("/search", methods=["POST"])
+def search():
+    """
+    Search inventory based on optional criteria:
+    type, description, brand, zone, purpose, lifecycle, packaging.
+    Only uses criteria that are filled in.
+    Filters by company_name from session as per business rules.
+    """
+    # Get company_name from session (required per Pasop.md)
+    company_name = session.get("company_name")
+    if not company_name:
+        # Fallback if session not set (shouldn't happen in production)
+        company_name = "Primetals"
+    
+    # Get search criteria from form (only use if provided)
+    search_params = {}
+    
+    # Material fields
+    search_type = request.form.get("search_type", "").strip()
+    if search_type:
+        search_params["q_type"] = search_type
+    
+    search_description = request.form.get("search_description", "").strip()
+    if search_description:
+        search_params["q_desc"] = search_description
+    
+    search_brand = request.form.get("search_brand", "").strip()
+    if search_brand:
+        search_params["q_brand"] = search_brand
+    
+    search_lifecycle = request.form.get("search_lifecycle", "").strip()
+    if search_lifecycle:
+        search_params["q_lifecycle"] = search_lifecycle
+    
+    # Item fields
+    search_zone = request.form.get("search_zone", "").strip()
+    if search_zone:
+        search_params["q_zone"] = search_zone
+    
+    search_purpose = request.form.get("search_purpose", "").strip()
+    if search_purpose:
+        search_params["filter_purpose"] = search_purpose
+    
+    search_packaging = request.form.get("search_packaging", "").strip()
+    if search_packaging:
+        search_params["filter_packaging"] = search_packaging
+    
+    # Redirect to inventory with search parameters
+    # The inventory() function will handle the actual filtering
+    return redirect(url_for("main.inventory", **search_params))
+
+
+# ---------------------------------------------------------------------------
+# RESET SEARCH FILTERS
+# ---------------------------------------------------------------------------
+@main.route("/reset", methods=["GET", "POST"])
+def reset_search():
+    """
+    Reset all search filters and return to default inventory view.
+    Clears all query parameters and shows all items for the company.
+    """
+    # Simply redirect to inventory without any query parameters
+    return redirect(url_for("main.inventory"))
+
+
 # --------------------------------------------------------------------------- 
