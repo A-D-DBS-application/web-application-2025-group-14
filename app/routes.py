@@ -10,6 +10,49 @@ from flask import session
 
 
 main = Blueprint("main", __name__)
+#----------------------------------------------------------------------------
+
+USERS = {
+    "fhaes": {
+        "password": "1234",
+        "fullname": "Frédéric De Haes",
+        "company": "Primetals"
+    },
+    "test": {
+        "password": "abcd",
+        "fullname": "Test Gebruiker",
+        "company": "TestCorp"
+    }
+}
+
+
+#----------------------------------------------------------------------------
+# LOGIN
+#----------------------------------------------------------------------------
+@main.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        username = request.form.get("username")
+        password = request.form.get("password")
+
+        if username in USERS and USERS[username]["password"] == password:
+
+            session.permanent = True   # <--- DIT IS NIEUW
+            session["username"] = USERS[username]["fullname"]
+            session["company_name"] = USERS[username]["company"]
+
+            return redirect(url_for("main.inventory"))
+
+        return render_template("login.html", error="Ongeldige login")
+
+    return render_template("login.html")
+
+
+@main.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("main.login"))
+
 
 
 # ---------------------------------------------------------------------------
@@ -17,12 +60,9 @@ main = Blueprint("main", __name__)
 # ---------------------------------------------------------------------------
 @main.route("/")
 def inventory():
-    """Inventory overview with sidebar, filters and reservations panel."""
-    # Temporary: simulate logged in user (remove once real login exists)
     if "username" not in session:
-        session["username"] = "Frédéric De Haes" #PAS OP MOET AFH ZIJN VAN LOGIN
-    if "company_name" not in session:
-        session["company_name"] = "Primetals"
+        return redirect(url_for("main.login"))
+
 
     # --- Sidebar selection (brand + material) ---
     active_brand = request.args.get("brand")
@@ -157,6 +197,8 @@ def inventory():
 
     return render_template(
         "inventory.html",
+        username=session["username"],
+        company=company_name,
         brands=brands,
         items=items,
         active_brand=active_brand,

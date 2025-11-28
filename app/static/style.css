@@ -859,3 +859,34 @@ body {
 .sidebar.hidden {
     display: none;
 }
+/* ---- FIX VOOR ICON-BUTTONS MET MATERIAL ICONS ---- */
+
+.icon-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: none;
+    background: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    text-decoration: none; /* verwijdert de paarse underline */
+    margin-left: 10px;     /* mooie spacing */
+}
+
+.icon-btn .material-icons {
+    font-size: 22px;   /* goede zichtbare icon grootte */
+    color: #111827;    /* donkergrijs, past bij topbar */
+}
+
+.icon-btn:hover {
+    background: #e5e7eb;   /* zelfde stijl als rest van UI */
+}
+/* ---- EINDE FIX VOOR ICON-BUTTONS MET MATERIAL ICONS ---- */
+
+.top-header-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;     /* ruimte tussen de iconen */
+}

@@ -1,40 +1,67 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
+    <meta charset="UTF-8" />
     <title>{% block title %}Inventory{% endblock %}</title>
+
+    <!-- MATERIAL ICONS (essentieel voor iconen!) -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+
+    <!-- MAIN STYLESHEET -->
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-<body>
+
+<body class="{{ body_class|default('') }}">
+
 <header class="top-header">
     <div class="top-header-inner">
+
+        <!-- LEFT SIDE — USER -->
         <div class="top-header-left">
-            Logged in as <strong>{{ session.username }}</strong>
+            Logged in as <strong>{{ session.get('username') }}</strong>
         </div>
 
+        <!-- CENTER — COMPANY -->
         <div class="top-header-center">
-            <span class="company">{{ session.company_name }}</span>
+            {{ session.get('company_name') }}
         </div>
 
+        <!-- RIGHT SIDE — ICON BAR -->
         <div class="top-header-right">
-            <button type="button" class="icon-btn top-icon" data-panel-open="filter-panel">🔍</button>
-            <a href="{{ url_for('main.add_item') }}" class="icon-btn top-icon">＋</a>
-            <button type="button" class="icon-btn top-icon" data-panel-open="reservations-panel">🛒</button>
+
+            <!-- Search -->
+            <button class="icon-btn" data-panel-open="filter-panel" title="Search">
+                <span class="material-icons">search</span>
+            </button>
+
+            <!-- Add item -->
+            <a href="{{ url_for('main.add_item') }}" class="icon-btn" title="Add item">
+                <span class="material-icons">add</span>
+            </a>
+
+            <!-- Reservations / Cart -->
+            <button class="icon-btn" data-panel-open="reservations-panel" title="Reservations">
+                <span class="material-icons">shopping_cart</span>
+            </button>
+
+            <!-- Logout -->
+            <a href="{{ url_for('main.logout') }}" class="icon-btn" title="Logout">
+                <span class="material-icons">logout</span>
+            </a>
+
         </div>
+
     </div>
 </header>
 
 <div class="app-shell">
-    <aside class="sidebar {% if body_class == 'no-sidebar' %}hidden{% endif %}">
-        <div class="sidebar-header">
-            <h2>Brands</h2>
-            <p class="sidebar-subtitle">
-            </p>
-        </div>
 
+    <!-- SIDEBAR -->
+    <aside class="sidebar {% if body_class == 'no-sidebar' %}hidden{% endif %}">
         {% block sidebar %}{% endblock %}
     </aside>
 
+    <!-- MAIN CONTENT AREA -->
     <main class="main">
         <header class="main-header">
             {% block header %}{% endblock %}
@@ -44,55 +71,36 @@
             {% block content %}{% endblock %}
         </section>
     </main>
+
 </div>
 
+<!-- PANEL + INTERACTION SCRIPT -->
 <script>
-document.addEventListener('click', function (event) {
-    // Toggle details
+document.addEventListener('click', (event) => {
+
+    // --- TOGGLE "More details" ---
     const toggle = event.target.closest('[data-toggle-details]');
     if (toggle) {
         const id = toggle.getAttribute('data-toggle-details');
         const panel = document.getElementById(id);
         if (panel) {
-            panel.classList.toggle('open');
-            toggle.textContent = panel.classList.contains('open') ? 'Less details' : 'More details';
+            const isOpen = panel.classList.toggle('open');
+            toggle.textContent = isOpen ? 'Less details' : 'More details';
         }
     }
 
-    // Open modal (per-item reservations, use-item, etc.)
-    const openModalBtn = event.target.closest('[data-modal-target]');
-    if (openModalBtn) {
-        const targetId = openModalBtn.getAttribute('data-modal-target');
-        const modal = document.getElementById(targetId);
-        if (modal) {
-            modal.classList.add('is-open');
-        }
-    }
-
-    // Close modal
-    if (event.target.matches('[data-modal-close], .modal-backdrop')) {
-        const modal = event.target.closest('.modal') || document.querySelector('.modal.is-open');
-        if (modal) {
-            modal.classList.remove('is-open');
-        }
-    }
-
-    // Open side panel (search, reservations)
+    // --- OPEN SIDE PANEL ---
     const openPanelBtn = event.target.closest('[data-panel-open]');
     if (openPanelBtn) {
         const targetId = openPanelBtn.getAttribute('data-panel-open');
         const panel = document.getElementById(targetId);
-        if (panel) {
-            panel.classList.add('is-open');
-        }
+        if (panel) panel.classList.add('is-open');
     }
 
-    // Close side panel
+    // --- CLOSE SIDE PANEL ---
     if (event.target.matches('[data-panel-close], .panel-backdrop')) {
         const panel = event.target.closest('.side-panel') || document.querySelector('.side-panel.is-open');
-        if (panel) {
-            panel.classList.remove('is-open');
-        }
+        if (panel) panel.classList.remove('is-open');
     }
 });
 </script>
