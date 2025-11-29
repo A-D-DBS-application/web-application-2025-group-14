@@ -305,11 +305,18 @@ def add_item():
 # ---------------------------------------------------------------------------
 # USE / RESERVE ITEM
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# USE / RESERVE ITEM
+# ---------------------------------------------------------------------------
 @main.route("/item/<int:item_id>/use", methods=["GET", "POST"])
 def use_item(item_id: int):
     """Create a reservation for an existing item."""
 
     item = Item.query.get_or_404(item_id)
+
+    # context vanwaar je komt (querystring)
+    brand = request.args.get("brand")
+    material_id = request.args.get("material_id", type=int)
 
     if request.method == "POST":
         username = request.form["username"]
@@ -325,16 +332,19 @@ def use_item(item_id: int):
         db.session.add(reservation)
         db.session.commit()
 
-        # Go back to the same brand/material context
+        # altijd terug naar dezelfde brand + material
         return redirect(
-            url_for(
-                "main.inventory",
-                brand=request.args.get("brand"),
-                material_id=request.args.get("material_id"),
-            )
+            url_for("main.inventory", brand=brand, material_id=material_id)
         )
 
-    return render_template("use_item.html", item=item)
+    # brand + material_id meegeven aan template voor Cancel-knop
+    return render_template(
+        "use_item.html",
+        item=item,
+        brand=brand,
+        material_id=material_id,
+    )
+
 
 
 # ---------------------------------------------------------------------------
@@ -518,8 +528,8 @@ def search():
 # ---------------------------------------------------------------------------
 # RESET SEARCH FILTERS
 # ---------------------------------------------------------------------------
-@main.route("/reset", methods=["GET", "POST"])
-def reset_search():
+#@main.route("/reset", methods=["GET", "POST"])
+#def reset_search():
     """
     Reset all search filters and return to default inventory view.
     Clears all query parameters and shows all items for the company.

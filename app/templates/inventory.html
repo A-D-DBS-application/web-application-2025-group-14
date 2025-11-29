@@ -10,13 +10,22 @@
     {% for brand_block in brands %}
         <li class="brand-item">
             <form method="get" style="margin:0;">
-                <input type="hidden" name="brand" value="{{ brand_block.name }}">
+                {# 
+                   Toggle-gedrag:
+                   - als dit NIET het actieve merk is → brand meesturen (selecteren)
+                   - als het WEL het actieve merk is → géén brand meesturen (deselecteren)
+                #}
+                {% if brand_block.name != active_brand %}
+                    <input type="hidden" name="brand" value="{{ brand_block.name }}">
+                {% endif %}
+
                 <button type="submit"
                         class="brand-button {% if brand_block.name == active_brand %}active{% endif %}">
                     <span>{{ brand_block.name }}</span>
                     <span class="brand-count">{{ brand_block.material_count }}</span>
                 </button>
             </form>
+
 
             {% if brand_block.name == active_brand %}
                 <ul class="type-list">
