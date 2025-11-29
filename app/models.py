@@ -22,16 +22,22 @@ class Company(db.Model):
 
 
 class User(db.Model):
-    __tablename__ = 'app_user' # 'user' is een gereserveerd woord in SQL
+    __tablename__ = 'app_user'  # 'user' is een gereserveerd woord in SQL
 
     username = db.Column(db.String, primary_key=True)
     password = db.Column(db.String, nullable=False)
-    company_name = db.Column(db.String, db.ForeignKey('company.company_name', ondelete="CASCADE", onupdate="CASCADE"),nullable=False)
+    company_name = db.Column(
+        db.String,
+        db.ForeignKey('company.company_name', ondelete="CASCADE", onupdate="CASCADE"),
+        nullable=False
+    )
 
     reservations = db.relationship('Reservation', backref='user', lazy=True)
 
     def __repr__(self):
         return f"<User {self.username}, from company {self.company_name}>"
+
+
 
 
 class Material(db.Model):

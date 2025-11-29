@@ -6,46 +6,38 @@ from sqlalchemy.orm import joinedload
 
 from .models import db, Material, Zone, Item, Reservation, User, Company
 from flask import session
+from werkzeug.security import generate_password_hash, check_password_hash
 
 
 
 main = Blueprint("main", __name__)
 #----------------------------------------------------------------------------
 
-USERS = {
-    "fhaes": {
-        "password": "1234",
-        "fullname": "Frédéric De Haes",
-        "company": "Primetals"
-    },
-    "test": {
-        "password": "abcd",
-        "fullname": "Test Gebruiker",
-        "company": "TestCorp"
-    }
-}
-
-
-#----------------------------------------------------------------------------
-# LOGIN
-#----------------------------------------------------------------------------
 @main.route("/login", methods=["GET", "POST"])
 def login():
+    """Login met Users uit de database, per company."""
+
     if request.method == "POST":
         username = request.form.get("username")
         password = request.form.get("password")
 
-        if username in USERS and USERS[username]["password"] == password:
+        # gebruiker opzoeken
+        user = User.query.filter_by(username=username).first()
 
-            session.permanent = True   # <--- DIT IS NIEUW
-            session["username"] = USERS[username]["fullname"]
-            session["company_name"] = USERS[username]["company"]
+        # user bestaat niet of wachtwoord fout (plain text vergelijking)
+        if not user or user.password != password:
+            return render_template("login.html", error="Ongeldige login")
 
-            return redirect(url_for("main.inventory"))
+        # alles ok → sessie vullen
+        session.permanent = True
+        session["username"] = user.username          # NIET user.full_name
+        session["company_name"] = user.company_name  # komt uit Supabase
 
-        return render_template("login.html", error="Ongeldige login")
+        return redirect(url_for("main.inventory"))
 
     return render_template("login.html")
+
+
 
 
 @main.route("/logout")
@@ -227,7 +219,7 @@ def add_item():
     """Create a new material/zone/item combination."""
 
     if request.method == "POST":
-        company_name = "Primetals"  # single company for this project
+        company_name = session.get("company_name")  
 
         # --- Material data ---
         brand = request.form["brand"].strip()
