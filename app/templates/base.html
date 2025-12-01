@@ -102,7 +102,34 @@ document.addEventListener('click', (event) => {
         const panel = event.target.closest('.side-panel') || document.querySelector('.side-panel.is-open');
         if (panel) panel.classList.remove('is-open');
     }
+
+
+    /*  --------------------------------------------------
+        (MODAL SCRIPT BEGIN)
+        Openen/sluiten van reservations-modals
+    -------------------------------------------------- */
+    const modalOpenBtn = event.target.closest("[data-modal-target]");
+    if (modalOpenBtn) {
+        const modalId = modalOpenBtn.getAttribute("data-modal-target");
+        const modal = document.getElementById(modalId);
+        if (modal) modal.classList.add("is-open");
+    }
+
+    // CLOSE MODAL (via kruisje of backdrop)
+    if (
+        event.target.matches("[data-modal-close]") ||
+        event.target.closest("[data-modal-close]")
+    ) {
+        const modal = event.target.closest(".modal");
+        if (modal) modal.classList.remove("is-open");
+    }
+    /*  ---------------------------
+        (MODAL SCRIPT END)
+    --------------------------- */
+
 });
 </script>
+
 </body>
 </html>
+

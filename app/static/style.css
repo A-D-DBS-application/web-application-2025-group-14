@@ -890,3 +890,11 @@ body {
     align-items: center;
     gap: 12px;     /* ruimte tussen de iconen */
 }
+/* Modal visibility */
+.modal {
+    display: none;
+}
+
+.modal.is-open {
+    display: block;
+}
