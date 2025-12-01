@@ -345,4 +345,21 @@
         {% endif %}
     </div>
 </aside>
+
+{% if open_panel == 'filter' %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const panel = document.getElementById('filter-panel');
+    if (panel) panel.classList.add('is-open');
+});
+</script>
+{% elif open_panel == 'reservations' %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const panel = document.getElementById('reservations-panel');
+    if (panel) panel.classList.add('is-open');
+});
+</script>
+{% endif %}
+
 {% endblock %}
