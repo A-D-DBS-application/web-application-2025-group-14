@@ -54,6 +54,9 @@ def logout():
 def inventory():
     if "username" not in session:
         return redirect(url_for("main.login"))
+    
+    # <-- nieuw
+    open_panel = request.args.get("open")  # 'filter' of 'reservations' of None
 
 
     # --- Sidebar selection (brand + material) ---
@@ -208,6 +211,7 @@ def inventory():
         q_lifecycle=q_lifecycle,
         filter_purpose=filter_purpose,
         filter_packaging=filter_packaging,
+        open_panel=open_panel,
     )
 
 

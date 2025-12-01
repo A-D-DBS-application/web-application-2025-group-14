@@ -30,7 +30,10 @@
         <div class="top-header-right">
 
             <!-- Search -->
-            <button class="icon-btn" data-panel-open="filter-panel" title="Search">
+            <button class="icon-btn" 
+                    data-panel-open="filter-panel"
+                    data-fallback-url="{{ url_for('main.inventory', open='filter') }}"
+                    title="Search">
                 <span class="material-icons">search</span>
             </button>
 
@@ -40,7 +43,10 @@
             </a>
 
             <!-- Reservations / Cart -->
-            <button class="icon-btn" data-panel-open="reservations-panel" title="Reservations">
+            <button class="icon-btn"
+                    data-panel-open="reservations-panel"
+                    data-fallback-url="{{ url_for('main.inventory', open='reservations') }}"
+                    title="Reservations">
                 <span class="material-icons">shopping_cart</span>
             </button>
 
@@ -89,19 +95,31 @@ document.addEventListener('click', (event) => {
         }
     }
 
-    // --- OPEN SIDE PANEL ---
-    const openPanelBtn = event.target.closest('[data-panel-open]');
-    if (openPanelBtn) {
-        const targetId = openPanelBtn.getAttribute('data-panel-open');
-        const panel = document.getElementById(targetId);
-        if (panel) panel.classList.add('is-open');
-    }
+// --- OPEN SIDE PANEL ---
+const openPanelBtn = event.target.closest('[data-panel-open]');
+if (openPanelBtn) {
+    const targetId = openPanelBtn.getAttribute('data-panel-open');
+    const panel = document.getElementById(targetId);
 
-    // --- CLOSE SIDE PANEL ---
-    if (event.target.matches('[data-panel-close], .panel-backdrop')) {
-        const panel = event.target.closest('.side-panel') || document.querySelector('.side-panel.is-open');
-        if (panel) panel.classList.remove('is-open');
+    if (panel) {
+        // Panel bestaat → open
+        panel.classList.add('is-open');
+    } else {
+        // Panel bestaat niet → ga naar fallback (bv. inventory)
+        const fallbackUrl = openPanelBtn.getAttribute('data-fallback-url');
+        if (fallbackUrl) {
+            window.location.href = fallbackUrl;
+        }
     }
+}
+
+// --- CLOSE SIDE PANEL (ORIGINEEL) ---
+if (event.target.matches('[data-panel-close], .panel-backdrop')) {
+    const panel = event.target.closest('.side-panel') || document.querySelector('.side-panel.is-open');
+    if (panel) {
+        panel.classList.remove('is-open');
+    }
+}
 
 
     /*  --------------------------------------------------
