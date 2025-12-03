@@ -2,25 +2,30 @@
 
 {% block title %}Inventory{% endblock %}
 
-
-
 {# ---------- SIDEBAR: BRANDS + TYPE-DESCRIPTION ---------- #}
 {% block sidebar %}
 <ul class="brand-list">
     {% for brand_block in brands %}
         <li class="brand-item">
             <form method="get" style="margin:0;">
-                {#Als dit NIET het actieve merk is: stuur brand mee om dat merk te openen#}
-                {% if brand_block.name != active_brand %}
+                {# Togglen: als deze brand al actief is → brand verwijderen #}
+                {% if brand_block.name == active_brand %}
+                    {# geen hidden brand → je gaat terug naar "geen brand-filter" #}
+                    <button type="submit"
+                            class="brand-button active">
+                        <span>{{ brand_block.name }}</span>
+                        <span class="brand-count">{{ brand_block.material_count }}</span>
+                    </button>
+                {% else %}
                     <input type="hidden" name="brand" value="{{ brand_block.name }}">
+                    <button type="submit"
+                            class="brand-button">
+                        <span>{{ brand_block.name }}</span>
+                        <span class="brand-count">{{ brand_block.material_count }}</span>
+                    </button>
                 {% endif %}
-
-                <button type="submit"
-                        class="brand-button {% if brand_block.name == active_brand %}active{% endif %}">
-                    <span>{{ brand_block.name }}</span>
-                    <span class="brand-count">{{ brand_block.material_count }}</span>
-                </button>
             </form>
+
             {% if brand_block.name == active_brand %}
                 <ul class="type-list">
                     {% for m in brand_block.materials %}
@@ -85,52 +90,39 @@
 {% endblock %}
 
 
-{# ---------- MAIN CONTENT: ITEM CARDS ---------- #}
+{# ---------- MAIN CONTENT: FOR YOU + ITEM CARDS ---------- #}
 {% block content %}
 
-{# Bepaal of er een merk, materiaal of filters actief zijn #}
-{% set has_filters =
-    active_brand
-    or active_material
-    or q_type or q_desc or q_brand or q_zone or q_lifecycle
-    or filter_purpose or filter_packaging
-%}
-
-{# ---------- PERSONAL "FOR YOU" SECTION (enkel als er geen filters/merk zijn) ---------- #}
-{% if personal_top_materials and not has_filters %}
+{# ---------- PERSONAL "FOR YOU" SECTION ---------- #}
+{% if personal_top_materials %}
 <section class="form-section" style="margin-bottom: 20px;">
-    <div style="display:flex; justify-content: space-between; align-items:center;">
-        <h2 class="section-title" style="margin:0;">For you</h2>
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div>
+            <h2 class="section-title">For you</h2>
+            <p class="subtitle">Recently viewed / used materials</p>
+        </div>
 
-        {# wis volledige lijst #}
+        {# blauwe vuilbak: alles verwijderen uit For you #}
         <form method="post"
-              action="{{ url_for('main.clear_for_you') }}"
-              style="margin:0;">
+              action="{{ url_for('main.clear_for_you') }}">
             <button type="submit"
-                    class="icon-small"
-                    title="Clear 'For you' list">
-                <span class="material-icons" style="font-size:18px;">delete</span>
+                    class="reservation-delete-btn"
+                    title="Clear For you list">
+                🗑
             </button>
         </form>
     </div>
-    <p class="subtitle">Recently viewed / used materials</p>
 
     <div class="item-list">
         {% for entry in personal_top_materials %}
             {% set m = entry.material %}
             <article class="item-card">
                 <div class="item-main">
-                    <div class="item-header">
-                        <h3 class="item-title">
-                            {{ m.brand }} — {{ m.material_type }}
-                        </h3>
-                        <span class="brand-count">
-                            ID {{ m.material_id }}
-                        </span>
-                    </div>
-
+                    <h3 class="item-title">
+                        {{ m.brand }} — {{ m.material_type }}
+                    </h3>
                     <p class="item-subtitle">
-                        {{ m.description }}
+                        ID: {{ m.material_id }} • {{ m.description }}
                     </p>
 
                     <div class="item-meta-row item-meta-spacing">
@@ -151,15 +143,16 @@
                             View items
                         </button>
                     </form>
-                    {# verwijder uit 'For you' lijst maar nu apart #}
+
+                    {# rood vuilbakje: enkel dit materiaal verwijderen uit For you #}
                     <form method="post"
-                          action="{{ url_for('main.remove_for_you_material',
-                                             material_id=m.material_id) }}"
-                          style="margin-top:4px;">
+                            action="{{ url_for('main.remove_for_you_material', material_id=m.material_id) }}"
+                          style="margin-top:6px;">
+                        <input type="hidden" name="material_id" value="{{ m.material_id }}">
                         <button type="submit"
-                                class="icon-small"
-                                title="Remove from 'For you'">
-                            <span class="material-icons" style="font-size:18px;">delete</span>
+                                class="reservation-delete-btn"
+                                title="Remove from For you">
+                            🗑
                         </button>
                     </form>
                 </div>
@@ -169,11 +162,18 @@
 </section>
 {% endif %}
 
+
 {# ---------- GEWONE ITEM-LIJST (rode zone) ---------- #}
-{# Toon deze:
-   - altijd als er GEEN persoonlijke data is
-   - of als er WEL filters/merk/materiaal actief zijn #}
-{% if not personal_top_materials or has_filters %}
+{# Alleen tonen als:
+   - er GEEN For-you lijst is, of
+   - er een brand/materiaal geselecteerd is, of
+   - er filters actief zijn
+#}
+{% if (not personal_top_materials)
+      or active_brand or active_material_id
+      or q_type or q_desc or q_brand or q_zone or q_lifecycle
+      or filter_purpose or filter_packaging %}
+
 <div class="item-list">
     {% for item in items %}
         {% set reserved_total = reserved_totals.get(item.item_id, 0) %}
@@ -219,7 +219,6 @@
                 </button>
 
                 <div class="item-details" id="details-{{ item.item_id }}">
-
                     <div class="item-meta-row">
                         <span><strong>Price:</strong>
                             {% if item.material.price is not none %}
@@ -243,7 +242,6 @@
             </div>
 
             <div class="item-actions">
-                {# Use-knop BOVEN de edit-knop #}
                 <form action="{{ url_for('main.use_item',
                          item_id=item.item_id,
                          brand=active_brand,
@@ -298,8 +296,142 @@
         </div>
     {% endfor %}
 </div>
-{% endif %}
+{% endif %} {# EINDE CONDITIE GEWONE ITEM-LIST #}
 
-{# de rest van je filter-panel + reservations-panel blijft zoals het was #}
+
+{# ---------- SEARCH & FILTER PANEL (rechts) ---------- #}
+<aside class="side-panel" id="filter-panel">
+    <div class="panel-backdrop" data-panel-close></div>
+    <div class="panel-content">
+        <header class="panel-header">
+            <h2>Search & Filter</h2>
+            <button type="button" class="panel-close" data-panel-close>×</button>
+        </header>
+
+        <form method="get" class="filter-form">
+            <label>
+                Type
+                <input type="text" name="q_type" placeholder="Search type..."
+                       value="{{ q_type }}">
+            </label>
+
+            <label>
+                Description
+                <input type="text" name="q_desc" placeholder="Search description..."
+                       value="{{ q_desc }}">
+            </label>
+
+            <label>
+                Brand
+                <input type="text" name="q_brand" placeholder="Search brand..."
+                       value="{{ q_brand }}">
+            </label>
+
+            <label>
+                Zone
+                <input type="text" name="q_zone" placeholder="Search zone..."
+                       value="{{ q_zone }}">
+            </label>
+
+            <label>
+                Lifecycle
+                <input type="text" name="q_lifecycle" placeholder="Search lifecycle..."
+                       value="{{ q_lifecycle }}">
+            </label>
+
+            <label>
+                Purpose
+                <select name="filter_purpose">
+                    <option value="">All purposes</option>
+                    <option value="keep"   {% if filter_purpose == 'keep' %}selected{% endif %}>keep</option>
+                    <option value="sell"   {% if filter_purpose == 'sell' %}selected{% endif %}>sell</option>
+                    <option value="dispose"{% if filter_purpose == 'dispose' %}selected{% endif %}>dispose</option>
+                </select>
+            </label>
+
+            <label>
+                Packaging
+                <select name="filter_packaging">
+                    <option value="">All packaging</option>
+                    <option value="open"   {% if filter_packaging == 'open' %}selected{% endif %}>open</option>
+                    <option value="closed" {% if filter_packaging == 'closed' %}selected{% endif %}>closed</option>
+                    <option value="none"   {% if filter_packaging == 'none' %}selected{% endif %}>none</option>
+                </select>
+            </label>
+
+            {% if active_brand %}
+                <input type="hidden" name="brand" value="{{ active_brand }}">
+            {% endif %}
+            {% if active_material_id %}
+                <input type="hidden" name="material_id" value="{{ active_material_id }}">
+            {% endif %}
+
+            <div class="filter-actions">
+                <button type="submit" class="btn-primary">Apply filters</button>
+                <a href="{{ url_for('main.inventory') }}" class="btn-secondary">Clear</a>
+            </div>
+        </form>
+    </div>
+</aside>
+
+{# ---------- RESERVATIONS PANEL (winkelmandje) ---------- #}
+<aside class="side-panel side-panel-wide" id="reservations-panel">
+    <div class="panel-backdrop" data-panel-close></div>
+    <div class="panel-content">
+        <header class="panel-header">
+            <h2>Reservations</h2>
+            <button type="button" class="panel-close" data-panel-close>×</button>
+        </header>
+
+        {% if reservations_list %}
+            <table class="reservations-table">
+                <thead>
+                <tr>
+                    <th>Item</th>
+                    <th>Project</th>
+                    <th>Date</th>
+                    <th>Qty</th>
+                    <th></th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for r in reservations_list %}
+                    <tr>
+                        <td>
+                            <strong>{{ r.brand }} – {{ r.type }}</strong><br>
+                            Zone {{ r.zone }}
+                        </td>
+                        <td>{{ r.project or '-' }}</td>
+                        <td>{{ r.date.strftime("%Y-%m-%d") }}</td>
+                        <td>{{ r.quantity }}</td>
+                        <td>
+                            <form method="post"
+                                  action="{{ url_for('main.delete_reservation') }}"
+                                  class="reservation-delete-form">
+                                <input type="hidden" name="item_id" value="{{ r.item_id }}">
+                                <input type="hidden" name="username" value="{{ r.username }}">
+                                <input type="hidden" name="date" value="{{ r.date.isoformat() }}">
+                                {% if active_brand %}
+                                    <input type="hidden" name="brand" value="{{ active_brand }}">
+                                {% endif %}
+                                {% if active_material_id %}
+                                    <input type="hidden" name="material_id" value="{{ active_material_id }}">
+                                {% endif %}
+                                <button type="submit"
+                                        class="reservation-delete-btn"
+                                        title="Delete reservation">
+                                    🗑
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p class="muted">You have no reservations.</p>
+        {% endif %}
+    </div>
+</aside>
 
 {% endblock %}

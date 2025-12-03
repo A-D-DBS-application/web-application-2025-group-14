@@ -1,47 +1,52 @@
 {% extends "base.html" %}
-{% block body_class %}has-overlay{% endblock %}
+{% block body_class %}no-sidebar{% endblock %}
 
 {% block title %}Reserve item{% endblock %}
 
 {% block content %}
-<h1>Reserve item</h1>
+<div class="form-page">
+    <h1 class="page-title">Reserve item</h1>
 
-<p>
-    <strong>{{ item.material.brand }} – {{ item.material.material_type }}</strong><br>
-    {{ item.material.description }}
-</p>
+    <p>
+        <strong>{{ item.material.brand }} – {{ item.material.material_type }}</strong><br>
+        {{ item.material.description }}<br>
+        Zone {{ item.zone.zone_name }}
+    </p>
 
-<form method="post" class="filter-form" style="max-width:400px;">
-    <label>
-        User
-        <input type="text" name="username" required>
-    </label>
+    <form method="post" class="form-card form-card-wide">
+        <section class="form-section">
+            <div class="form-grid-2">
+                <div class="form-group">
+                    <label for="username">User</label>
+                    {# standaard de ingelogde user invullen #}
+                    <input id="username"
+                           name="username"
+                           type="text"
+                           value="{{ session.get('username') }}"
+                           required>
+                </div>
 
-    <label>
-        Project
-        <input type="text" name="project">
-    </label>
+                <div class="form-group">
+                    <label for="project">Project</label>
+                    <input id="project" name="project" type="text">
+                </div>
 
-    <label>
-        Quantity
-        <input type="number"
-               name="quantity"
-               min="1"
-               max="{{ item.quantity }}"
-               required>
-    </label>
+                <div class="form-group">
+                    <label for="quantity">Quantity</label>
+                    <input id="quantity" name="quantity" type="number" min="1" required>
+                </div>
+            </div>
+        </section>
 
-    <div class="filter-actions">
-        <button type="submit" class="btn-primary">Reserve</button>
-
-        {# <<< Cancel gaat terug naar dezelfde brand + material #}
-        <a href="{{ url_for('main.inventory',
-                            brand=brand,
-                            material_id=material_id) }}"
-           class="btn-secondary">
-            Cancel
-        </a>
-    </div>
-</form>
+        <div class="form-actions">
+            <button type="submit" class="btn-primary">Reserve</button>
+            <a href="{{ url_for('main.inventory',
+                                brand=request.args.get('brand'),
+                                material_id=request.args.get('material_id')) }}"
+               class="btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
 {% endblock %}
+
 

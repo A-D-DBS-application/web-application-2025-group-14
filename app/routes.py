@@ -8,6 +8,21 @@ from .models import db, Material, Zone, Item, Reservation, User, Company, Materi
 from flask import session
 from werkzeug.security import generate_password_hash, check_password_hash
 
+def record_material_event(username: str, material_id: int, event_type: str) -> None:
+    """
+    Slaat een view / reserve event op voor de For-you logica.
+    """
+    if not username or not material_id:
+        return
+
+    ev = MaterialEvent(
+        username=username,
+        material_id=material_id,
+        event_type=event_type,
+    )
+    db.session.add(ev)
+    db.session.commit()
+
 
 
 main = Blueprint("main", __name__)
@@ -56,12 +71,22 @@ def inventory():
     if "username" not in session:
         return redirect(url_for("main.login"))
 
-    company_name = session.get("company_name")
-    username_pk = session.get("username_pk")
+    # --- Sidebar selection ---
+    active_brand = request.args.get("brand")
+    active_material_id = request.args.get("material_id", type=int)
 
-    # -----------------------------
-    # 1) Sidebar: brands + materials
-    # -----------------------------
+    # --- Filters ---
+    q_type = request.args.get("q_type") or ""
+    q_desc = request.args.get("q_desc") or ""
+    q_brand = request.args.get("q_brand") or ""
+    q_zone = request.args.get("q_zone") or ""
+    q_lifecycle = request.args.get("q_lifecycle") or ""
+    filter_purpose = request.args.get("filter_purpose") or ""
+    filter_packaging = request.args.get("filter_packaging") or ""
+
+    company_name = session.get("company_name") or "Primetals"
+
+    # --- 1) Sidebar brands + materials ---
     material_stats = (
         db.session.query(
             Material,
@@ -93,23 +118,9 @@ def inventory():
                 "item_count": item_count,
             }
         )
-
     brands = list(brands_dict.values())
 
-    # -----------------------------
-    # 2) Filters & selectie
-    # -----------------------------
-    active_brand = request.args.get("brand")
-    active_material_id = request.args.get("material_id", type=int)
-
-    q_type = request.args.get("q_type") or ""
-    q_desc = request.args.get("q_desc") or ""
-    q_brand = request.args.get("q_brand") or ""
-    q_zone = request.args.get("q_zone") or ""
-    q_lifecycle = request.args.get("q_lifecycle") or ""
-    filter_purpose = request.args.get("filter_purpose") or ""
-    filter_packaging = request.args.get("filter_packaging") or ""
-
+    # --- 2) Items main list ---
     query = (
         Item.query
         .join(Material)
@@ -140,68 +151,27 @@ def inventory():
     items = query.order_by(Material.brand, Material.material_type).all()
     item_count = len(items)
 
+    # --- 3) Active material (voor titel + event logging) ---
     active_material = (
         Material.query.get(active_material_id) if active_material_id else None
     )
 
+    # 👉 **EVENT LOGGEN** als er een materiaal actief is
+    username_pk = session.get("username_pk") or session.get("username")
+    if active_material and username_pk:
+        record_material_event(
+            username=username_pk,
+            material_id=active_material.material_id,
+            event_type="view",
+        )
+
+    # --- 4) Reserved totals per item ---
     reserved_totals = {
         item.item_id: sum(r.quantity for r in item.reservations)
         for item in items
     }
 
-    # -----------------------------
-    # 3) FOR YOU – MaterialEvent gebruiken
-    # -----------------------------
-    from collections import defaultdict
-
-    events = (
-        MaterialEvent.query
-        .filter_by(username=username_pk)
-        .order_by(MaterialEvent.ts.desc())
-        .all()
-    )
-
-    agg = defaultdict(lambda: {"views": 0, "reserves": 0, "last_ts": None})
-
-    for e in events:
-        data = agg[e.material_id]
-        if e.event_type == "view":
-            data["views"] += 1
-        elif e.event_type == "reserve":
-            data["reserves"] += 1
-
-        if not data["last_ts"] or e.ts > data["last_ts"]:
-            data["last_ts"] = e.ts
-
-    personal_data = []
-    for material_id, stats in agg.items():
-        mat = Material.query.get(material_id)
-        if not mat:
-            continue
-
-        score = (
-            stats["views"] * 1 +
-            stats["reserves"] * 3 +
-            (stats["last_ts"].timestamp() / 1000000 if stats["last_ts"] else 0)
-        )
-
-        personal_data.append({
-            "material": mat,
-            "views": stats["views"],
-            "reservations": stats["reserves"],
-            "last_ts": stats["last_ts"],
-            "score": score,
-        })
-
-    personal_top_materials = sorted(
-        personal_data,
-        key=lambda x: x["score"],
-        reverse=True
-    )[:5]
-
-    # -----------------------------
-    # 4) WINKELMANDJE – zelfde als vroeger
-    # -----------------------------
+    # --- 5) Winkelmandje: alle reservations ---
     reservations_raw = (
         db.session.query(Reservation, Item, Material, Zone)
         .join(Item, Reservation.item_id == Item.item_id)
@@ -229,6 +199,47 @@ def inventory():
 
     zones = Zone.query.filter_by(company_name=company_name).order_by(Zone.zone_name).all()
 
+    # --- 6) FOR YOU: persoonlijke top-materialen ---
+    personal_top_materials = []
+    if username_pk:
+        stats = (
+            db.session.query(
+                MaterialEvent.material_id,
+                func.count(
+                    case((MaterialEvent.event_type == "view", 1))
+                ).label("views"),
+                func.count(
+                    case((MaterialEvent.event_type == "reserve", 1))
+                ).label("reservations"),
+                func.max(MaterialEvent.ts).label("last_ts"),
+            )
+            .filter(MaterialEvent.username == username_pk)
+            .group_by(MaterialEvent.material_id)
+            .order_by(func.max(MaterialEvent.ts).desc())
+            .limit(5)
+            .all()
+        )
+
+        material_ids = [row.material_id for row in stats]
+        if material_ids:
+            materials = Material.query.filter(
+                Material.material_id.in_(material_ids)
+            ).all()
+            mat_by_id = {m.material_id: m for m in materials}
+
+            for row in stats:
+                m = mat_by_id.get(row.material_id)
+                if not m:
+                    continue
+                personal_top_materials.append(
+                    {
+                        "material": m,
+                        "views": row.views or 0,
+                        "reservations": row.reservations or 0,
+                        "last_ts": row.last_ts,
+                    }
+                )
+
     return render_template(
         "inventory.html",
         username=session["username"],
@@ -249,7 +260,7 @@ def inventory():
         q_lifecycle=q_lifecycle,
         filter_purpose=filter_purpose,
         filter_packaging=filter_packaging,
-        personal_top_materials=personal_top_materials,
+        personal_top_materials=personal_top_materials,   # 👈 belangrijk
     )
 
 
@@ -336,6 +347,7 @@ def add_item():
     return render_template("add_item.html")
 
 
+
 # ---------------------------------------------------------------------------
 # USE / RESERVE ITEM
 # ---------------------------------------------------------------------------
@@ -344,8 +356,6 @@ def add_item():
 # ---------------------------------------------------------------------------
 @main.route("/item/<int:item_id>/use", methods=["GET", "POST"])
 def use_item(item_id: int):
-    """Create a reservation for an existing item + log reserve-event."""
-
     item = Item.query.get_or_404(item_id)
 
     if request.method == "POST":
@@ -353,7 +363,6 @@ def use_item(item_id: int):
         project = request.form.get("project") or None
         quantity = int(request.form["quantity"])
 
-        # 1) ECHTE reservatie aanmaken (zoals vroeger)
         reservation = Reservation(
             item_id=item.item_id,
             username=username,
@@ -361,18 +370,16 @@ def use_item(item_id: int):
             project=project,
         )
         db.session.add(reservation)
+        db.session.commit()
 
-        # 2) EXTRA: event loggen voor het For you algoritme
-        event = MaterialEvent(
-            username=username,
+        # 👉 reserve-event loggen
+        username_pk = session.get("username_pk") or username
+        record_material_event(
+            username=username_pk,
             material_id=item.material_id,
             event_type="reserve",
         )
-        db.session.add(event)
 
-        db.session.commit()
-
-        # Terug naar hetzelfde brand/material
         return redirect(
             url_for(
                 "main.inventory",
