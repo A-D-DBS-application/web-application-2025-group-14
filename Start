@@ -12,4 +12,3 @@ python run.py
 
 
 flask --app run --debug run
-
