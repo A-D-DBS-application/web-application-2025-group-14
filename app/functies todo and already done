@@ -2,9 +2,14 @@ dit is een file waar we bijhouden welke functies er al in routes staan en welke 
 
 nog toe te voegen:
 
-
-
-
+- Add item: error
+- vuilbakje...
+- edit item: Onbestaande zone = error
+- Quantity (=vrij aantal dus NIET totaal aantal) moet aangepast worden na reservatie
+- Reservatie mogelijk door Users buiten de company
+- Compex algoritme: andere lay-out!
+- README
+- als laatst: code opkuisen!
 
 
 al in routes.py:
