@@ -108,3 +108,30 @@ class Reservation(db.Model):
 
     def __repr__(self):
         return f"<Reservation: Item_ID={self.item_id} by {self.username} on {self.date}>" #PK
+
+class MaterialEvent(db.Model):
+    __tablename__ = "material_event"
+
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(
+        db.String,
+        db.ForeignKey('app_user.username', ondelete="CASCADE", onupdate="CASCADE"),
+        nullable=False,
+    )
+    material_id = db.Column(
+        db.Integer,
+        db.ForeignKey('material.material_id', ondelete="CASCADE", onupdate="CASCADE"),
+        nullable=False,
+    )
+    event_type = db.Column(db.String(20), nullable=False)  # 'view' of 'reserve'
+    ts = db.Column(
+        db.DateTime,
+        server_default=db.func.current_timestamp(),
+        nullable=False,
+    )
+
+    user = db.relationship("User")
+    material = db.relationship("Material")
+
+    def __repr__(self):
+        return f"<MaterialEvent {self.event_type} user={self.username} material={self.material_id} at {self.ts}>"

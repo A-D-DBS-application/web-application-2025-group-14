@@ -1,10 +1,10 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from flask import Blueprint, render_template, request, redirect, url_for
-from sqlalchemy import func
+from sqlalchemy import func, case
 from sqlalchemy.orm import joinedload
 
-from .models import db, Material, Zone, Item, Reservation, User, Company
+from .models import db, Material, Zone, Item, Reservation, User, Company, MaterialEvent
 from flask import session
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -32,6 +32,7 @@ def login():
         session.permanent = True
         session["username"] = user.username          # NIET user.full_name
         session["company_name"] = user.company_name  # komt uit Supabase
+        session["username_pk"] = user.username
 
         return redirect(url_for("main.inventory"))
 
@@ -54,32 +55,13 @@ def logout():
 def inventory():
     if "username" not in session:
         return redirect(url_for("main.login"))
-    
-    # <-- nieuw
-    open_panel = request.args.get("open")  # 'filter' of 'reservations' of None
 
-
-    # --- Sidebar selection (brand + material) ---
-    active_brand = request.args.get("brand")
-    active_material_id = request.args.get("material_id", type=int)
-
-    # --- Filters from the search & filter panel ---
-    q_type = request.args.get("q_type") or ""
-    q_desc = request.args.get("q_desc") or ""
-    q_brand = request.args.get("q_brand") or ""
-    q_zone = request.args.get("q_zone") or ""
-    q_lifecycle = request.args.get("q_lifecycle") or ""
-    filter_purpose = request.args.get("filter_purpose") or ""
-    filter_packaging = request.args.get("filter_packaging") or ""
-
-    # Get company_name from session (required per Pasop.md)
     company_name = session.get("company_name")
-    if not company_name:
-        # Fallback if session not set (shouldn't happen in production)
-        company_name = "Primetals"
-    
-    # --- 1) Brands + materials ("type — description") for the sidebar ---
-    # Filter by company_name as per Pasop.md business rules
+    username_pk = session.get("username_pk")
+
+    # -----------------------------
+    # 1) Sidebar: brands + materials
+    # -----------------------------
     material_stats = (
         db.session.query(
             Material,
@@ -114,8 +96,20 @@ def inventory():
 
     brands = list(brands_dict.values())
 
-    # --- 2) Items for the main list ---
-    # Filter by company_name as per Pasop.md business rules
+    # -----------------------------
+    # 2) Filters & selectie
+    # -----------------------------
+    active_brand = request.args.get("brand")
+    active_material_id = request.args.get("material_id", type=int)
+
+    q_type = request.args.get("q_type") or ""
+    q_desc = request.args.get("q_desc") or ""
+    q_brand = request.args.get("q_brand") or ""
+    q_zone = request.args.get("q_zone") or ""
+    q_lifecycle = request.args.get("q_lifecycle") or ""
+    filter_purpose = request.args.get("filter_purpose") or ""
+    filter_packaging = request.args.get("filter_packaging") or ""
+
     query = (
         Item.query
         .join(Material)
@@ -123,13 +117,11 @@ def inventory():
         .filter(Material.company_name == company_name)
     )
 
-    # selection via sidebar
     if active_brand:
         query = query.filter(Material.brand == active_brand)
     if active_material_id:
         query = query.filter(Item.material_id == active_material_id)
 
-    # filters via search panel
     if q_type:
         query = query.filter(Material.material_type.ilike(f"%{q_type}%"))
     if q_desc:
@@ -148,19 +140,68 @@ def inventory():
     items = query.order_by(Material.brand, Material.material_type).all()
     item_count = len(items)
 
-    # --- 3) Active material (for the page title) ---
     active_material = (
         Material.query.get(active_material_id) if active_material_id else None
     )
 
-    # --- 4) Reserved totals per item (blue "Reserved quantity" link) ---
     reserved_totals = {
         item.item_id: sum(r.quantity for r in item.reservations)
         for item in items
     }
 
-    # --- 5) All reservations (for the cart panel) ---
-    # Filter by company_name as per Pasop.md business rules
+    # -----------------------------
+    # 3) FOR YOU – MaterialEvent gebruiken
+    # -----------------------------
+    from collections import defaultdict
+
+    events = (
+        MaterialEvent.query
+        .filter_by(username=username_pk)
+        .order_by(MaterialEvent.ts.desc())
+        .all()
+    )
+
+    agg = defaultdict(lambda: {"views": 0, "reserves": 0, "last_ts": None})
+
+    for e in events:
+        data = agg[e.material_id]
+        if e.event_type == "view":
+            data["views"] += 1
+        elif e.event_type == "reserve":
+            data["reserves"] += 1
+
+        if not data["last_ts"] or e.ts > data["last_ts"]:
+            data["last_ts"] = e.ts
+
+    personal_data = []
+    for material_id, stats in agg.items():
+        mat = Material.query.get(material_id)
+        if not mat:
+            continue
+
+        score = (
+            stats["views"] * 1 +
+            stats["reserves"] * 3 +
+            (stats["last_ts"].timestamp() / 1000000 if stats["last_ts"] else 0)
+        )
+
+        personal_data.append({
+            "material": mat,
+            "views": stats["views"],
+            "reservations": stats["reserves"],
+            "last_ts": stats["last_ts"],
+            "score": score,
+        })
+
+    personal_top_materials = sorted(
+        personal_data,
+        key=lambda x: x["score"],
+        reverse=True
+    )[:5]
+
+    # -----------------------------
+    # 4) WINKELMANDJE – zelfde als vroeger
+    # -----------------------------
     reservations_raw = (
         db.session.query(Reservation, Item, Material, Zone)
         .join(Item, Reservation.item_id == Item.item_id)
@@ -186,8 +227,6 @@ def inventory():
         for reservation, item, mat, zone in reservations_raw
     ]
 
-    # Zones are useful for forms; you already use them in the UI
-    # Filter by company_name as per Pasop.md business rules
     zones = Zone.query.filter_by(company_name=company_name).order_by(Zone.zone_name).all()
 
     return render_template(
@@ -203,7 +242,6 @@ def inventory():
         reserved_totals=reserved_totals,
         reservations_list=reservations_list,
         zones=zones,
-        # echo filters back into the form
         q_type=q_type,
         q_desc=q_desc,
         q_brand=q_brand,
@@ -211,7 +249,7 @@ def inventory():
         q_lifecycle=q_lifecycle,
         filter_purpose=filter_purpose,
         filter_packaging=filter_packaging,
-        open_panel=open_panel,
+        personal_top_materials=personal_top_materials,
     )
 
 
@@ -306,19 +344,16 @@ def add_item():
 # ---------------------------------------------------------------------------
 @main.route("/item/<int:item_id>/use", methods=["GET", "POST"])
 def use_item(item_id: int):
-    """Create a reservation for an existing item."""
+    """Create a reservation for an existing item + log reserve-event."""
 
     item = Item.query.get_or_404(item_id)
-
-    # context vanwaar je komt (querystring)
-    brand = request.args.get("brand")
-    material_id = request.args.get("material_id", type=int)
 
     if request.method == "POST":
         username = request.form["username"]
         project = request.form.get("project") or None
         quantity = int(request.form["quantity"])
 
+        # 1) ECHTE reservatie aanmaken (zoals vroeger)
         reservation = Reservation(
             item_id=item.item_id,
             username=username,
@@ -326,20 +361,27 @@ def use_item(item_id: int):
             project=project,
         )
         db.session.add(reservation)
+
+        # 2) EXTRA: event loggen voor het For you algoritme
+        event = MaterialEvent(
+            username=username,
+            material_id=item.material_id,
+            event_type="reserve",
+        )
+        db.session.add(event)
+
         db.session.commit()
 
-        # altijd terug naar dezelfde brand + material
+        # Terug naar hetzelfde brand/material
         return redirect(
-            url_for("main.inventory", brand=brand, material_id=material_id)
+            url_for(
+                "main.inventory",
+                brand=request.args.get("brand"),
+                material_id=request.args.get("material_id"),
+            )
         )
 
-    # brand + material_id meegeven aan template voor Cancel-knop
-    return render_template(
-        "use_item.html",
-        item=item,
-        brand=brand,
-        material_id=material_id,
-    )
+    return render_template("use_item.html", item=item)
 
 
 
@@ -535,3 +577,33 @@ def search():
 
 
 # --------------------------------------------------------------------------- 
+
+
+
+@main.route("/for_you/clear", methods=["POST"])
+def clear_for_you():
+    """Alle persoonlijke aanbevelingen wissen voor de ingelogde gebruiker."""
+    username = session.get("username_pk")
+    if not username:
+        return redirect(url_for("main.login"))
+
+    MaterialEvent.query.filter_by(username=username).delete()
+    db.session.commit()
+
+    return redirect(url_for("main.inventory"))
+
+
+@main.route("/for_you/<int:material_id>/remove", methods=["POST"])
+def remove_for_you_material(material_id):
+    """Eén materiaal uit 'For you' verwijderen voor deze gebruiker."""
+    username = session.get("username_pk")
+    if not username:
+        return redirect(url_for("main.login"))
+
+    MaterialEvent.query.filter_by(
+        username=username,
+        material_id=material_id
+    ).delete()
+    db.session.commit()
+
+    return redirect(url_for("main.inventory"))
