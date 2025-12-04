@@ -267,12 +267,10 @@ def inventory():
 # ---------------------------------------------------------------------------
 # ADD INVENTORY ITEM (material + zone + item)
 # ---------------------------------------------------------------------------
-@main.route("/item/add", methods=["GET", "POST"])
+@main.route("/add_item", methods=["GET", "POST"])
 def add_item():
-    """Create a new material/zone/item combination."""
-
     if request.method == "POST":
-        company_name = session.get("company_name")  
+        company_name = session.get("company_name")
 
         # --- Material data ---
         brand = request.form["brand"].strip()
@@ -283,7 +281,7 @@ def add_item():
         price_raw = request.form.get("price")
         price = float(price_raw.replace(",", ".")) if price_raw else None
 
-        # Check if material already exists
+        # Material check
         material = Material.query.filter_by(
             company_name=company_name,
             material_type=material_type,
@@ -300,14 +298,9 @@ def add_item():
                 price=price,
             )
             db.session.add(material)
-            db.session.flush()  # material.material_id becomes available
-        else:
-            # Optionally update existing material fields
-            material.brand = brand
-            material.lifecycle = lifecycle
-            material.price = price
+            db.session.flush()
 
-        # --- Zone (free text, create if needed) ---
+        # --- Zone data ---
         zone_name = request.form["zone_name"].strip().upper()
         zone = Zone.query.filter_by(
             company_name=company_name,
@@ -317,14 +310,33 @@ def add_item():
         if zone is None:
             zone = Zone(zone_name=zone_name, company_name=company_name)
             db.session.add(zone)
-            db.session.flush()  # zone.zone_id
+            db.session.flush()
 
-        # --- Item ---
+        # --- Item data ---
         quantity = int(request.form["quantity"])
         purpose = request.form["purpose"]
         packaging = request.form["packaging"]
         comment = request.form.get("comment") or None
 
+        # Check for existing duplicate item (UC3)
+        existing_item = Item.query.filter_by(
+            material_id=material.material_id,
+            zone_id=zone.zone_id,
+            purpose=purpose,
+            packaging=packaging
+        ).first()
+
+        if existing_item:
+            # ❗ Update quantity instead of creating duplicate
+            existing_item.quantity += quantity
+            if comment:
+                existing_item.comment = comment
+            
+            db.session.commit()
+
+            return redirect(url_for("main.inventory", material_id=material.material_id))
+
+        # If not duplicate → create new item
         item = Item(
             material_id=material.material_id,
             zone_id=zone.zone_id,
@@ -333,62 +345,21 @@ def add_item():
             quantity=quantity,
             comment=comment,
         )
+
         db.session.add(item)
         db.session.commit()
 
-        return redirect(
-            url_for(
-                "main.inventory",
-                brand=material.brand,
-                material_id=material.material_id,
-            )
-        )
+        return redirect(url_for("main.inventory", material_id=material.material_id))
 
     return render_template("add_item.html")
 
 
+@main.route("/use_item/<int:item_id>")
+def use_item(item_id):
+    # voorbeeld implementatie
+    session['last_used_item'] = item_id
+    return redirect(url_for("main.inventory"))
 
-# ---------------------------------------------------------------------------
-# USE / RESERVE ITEM
-# ---------------------------------------------------------------------------
-# ---------------------------------------------------------------------------
-# USE / RESERVE ITEM
-# ---------------------------------------------------------------------------
-@main.route("/item/<int:item_id>/use", methods=["GET", "POST"])
-def use_item(item_id: int):
-    item = Item.query.get_or_404(item_id)
-
-    if request.method == "POST":
-        username = request.form["username"]
-        project = request.form.get("project") or None
-        quantity = int(request.form["quantity"])
-
-        reservation = Reservation(
-            item_id=item.item_id,
-            username=username,
-            quantity=quantity,
-            project=project,
-        )
-        db.session.add(reservation)
-        db.session.commit()
-
-        # 👉 reserve-event loggen
-        username_pk = session.get("username_pk") or username
-        record_material_event(
-            username=username_pk,
-            material_id=item.material_id,
-            event_type="reserve",
-        )
-
-        return redirect(
-            url_for(
-                "main.inventory",
-                brand=request.args.get("brand"),
-                material_id=request.args.get("material_id"),
-            )
-        )
-
-    return render_template("use_item.html", item=item)
 
 
 
