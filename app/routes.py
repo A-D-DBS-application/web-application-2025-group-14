@@ -353,12 +353,44 @@ def add_item():
 
     return render_template("add_item.html")
 
+# USE / RESERVE ITEM
+# ---------------------------------------------------------------------------
+@main.route("/item/<int:item_id>/use", methods=["GET", "POST"])
+def use_item(item_id: int):
+    item = Item.query.get_or_404(item_id)
 
-@main.route("/use_item/<int:item_id>")
-def use_item(item_id):
-    # voorbeeld implementatie
-    session['last_used_item'] = item_id
-    return redirect(url_for("main.inventory"))
+    if request.method == "POST":
+        username = request.form["username"]
+        project = request.form.get("project") or None
+        quantity = int(request.form["quantity"])
+
+        reservation = Reservation(
+            item_id=item.item_id,
+            username=username,
+            quantity=quantity,
+            project=project,
+        )
+        db.session.add(reservation)
+        db.session.commit()
+
+        # 👉 reserve-event loggen
+        username_pk = session.get("username_pk") or username
+        record_material_event(
+            username=username_pk,
+            material_id=item.material_id,
+            event_type="reserve",
+        )
+
+        return redirect(
+            url_for(
+                "main.inventory",
+                brand=request.args.get("brand"),
+                material_id=request.args.get("material_id"),
+            )
+        )
+
+    return render_template("use_item.html", item=item)
+
 
 
 
