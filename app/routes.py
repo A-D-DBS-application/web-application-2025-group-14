@@ -359,11 +359,39 @@ def add_item():
 def use_item(item_id: int):
     item = Item.query.get_or_404(item_id)
 
+    # Calculate reserved and available
+    already_reserved = sum(r.quantity for r in item.reservations)
+    available = item.quantity - already_reserved
+
     if request.method == "POST":
-        username = request.form["username"]
+        username = request.form["username"].strip()
         project = request.form.get("project") or None
         quantity = int(request.form["quantity"])
 
+        # --- User validation ---
+        user_exists = User.query.filter_by(
+            username=username,
+            company_name=item.material.company_name
+        ).first()
+
+        if not user_exists:
+            error_msg = f"This user '{username}' does not exist in your organization."
+            return render_template(
+                "use_item.html",
+                item=item,
+                available=available,
+                error=error_msg
+            )
+
+        # --- Availability check ---
+        if quantity > available:
+            error_msg = (
+                f"Not enough stock available. Available: {available}, "
+                f"requested: {quantity}."
+            )
+            return render_template("use_item.html", item=item, available=available, error=error_msg)
+
+        # --- Create reservation ---
         reservation = Reservation(
             item_id=item.item_id,
             username=username,
@@ -371,6 +399,9 @@ def use_item(item_id: int):
             project=project,
         )
         db.session.add(reservation)
+
+        # --- Reduce real stock directly ---
+        item.quantity -= quantity
         db.session.commit()
 
         # 👉 reserve-event loggen
@@ -389,7 +420,7 @@ def use_item(item_id: int):
             )
         )
 
-    return render_template("use_item.html", item=item)
+    return render_template("use_item.html", item=item, available=available)
 
 
 
