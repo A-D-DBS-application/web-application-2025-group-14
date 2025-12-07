@@ -4,7 +4,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from .config import Config
 from .models import db
-from datetime import timedelta
+from datetime import timedelta #?
 
 migrate = Migrate()
 
@@ -19,9 +19,6 @@ def create_app():
         from .routes import main
         app.register_blueprint(main)
     
-    app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(minutes=15)
+    app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(minutes=15) #?
 
     return app
-
-
-#ONAANGEPAST !!!

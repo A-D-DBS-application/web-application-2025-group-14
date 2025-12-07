@@ -8,7 +8,7 @@ from .models import db, Material, Zone, Item, Reservation, User, Company, Materi
 from flask import session
 from werkzeug.security import generate_password_hash, check_password_hash
 
-def record_material_event(username: str, material_id: int, event_type: str) -> None:
+def record_material_event(username: str, material_id: int, event_type: str, total_events: int) -> None:
     """
     Slaat een view / reserve event op voor de For-you logica.
     """
@@ -19,6 +19,7 @@ def record_material_event(username: str, material_id: int, event_type: str) -> N
         username=username,
         material_id=material_id,
         event_type=event_type,
+        total_events=total_events,
     )
     db.session.add(ev)
     db.session.commit()
@@ -163,6 +164,7 @@ def inventory():
             username=username_pk,
             material_id=active_material.material_id,
             event_type="view",
+            total_events=0 #!
         )
 
     # --- 4) Reserved totals per item ---
@@ -211,11 +213,11 @@ def inventory():
                 func.count(
                     case((MaterialEvent.event_type == "reserve", 1))
                 ).label("reservations"),
-                func.max(MaterialEvent.ts).label("last_ts"),
+                func.max(MaterialEvent.date).label("last_date"),
             )
             .filter(MaterialEvent.username == username_pk)
             .group_by(MaterialEvent.material_id)
-            .order_by(func.max(MaterialEvent.ts).desc())
+            .order_by(func.max(MaterialEvent.date).desc())
             .limit(5)
             .all()
         )
@@ -236,7 +238,7 @@ def inventory():
                         "material": m,
                         "views": row.views or 0,
                         "reservations": row.reservations or 0,
-                        "last_ts": row.last_ts,
+                        "last_date": row.last_date,
                     }
                 )
 
@@ -410,6 +412,7 @@ def use_item(item_id: int):
             username=username_pk,
             material_id=item.material_id,
             event_type="reserve",
+            total_events=0 #!
         )
 
         return redirect(
