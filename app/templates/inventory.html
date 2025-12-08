@@ -9,7 +9,7 @@
         <li class="brand-item">
             <form method="get" style="margin:0;">
                 {# Togglen: als deze brand al actief is → brand verwijderen #}
-                {% if brand_block.name == active_brand %}
+                {% if brand_block.name|lower == active_brand|lower %}
                     {# geen hidden brand → je gaat terug naar "geen brand-filter" #}
                     <button type="submit"
                             class="brand-button active">
@@ -26,7 +26,7 @@
                 {% endif %}
             </form>
 
-            {% if brand_block.name == active_brand %}
+            {% if brand_block.name|lower == active_brand|lower %}
                 <ul class="type-list">
                     {% for m in brand_block.materials %}
                         <li class="type-item">
@@ -59,13 +59,7 @@
     <div class="top-bar-left">
         <div class="title-row">
             <h1 class="page-title">
-                {% if active_material %}
-                    {{ active_material.brand }} — {{ active_material.material_type }}
-                {% elif active_brand %}
-                    {{ active_brand }}
-                {% else %}
-                    Inventory
-                {% endif %}
+                {{ page_title }}
             </h1>
 
             {% if active_material %}
@@ -80,8 +74,6 @@
 
         <p class="subtitle">
             {% if active_material %}
-                Material ID: {{ active_material.material_id }} • {{ item_count }} items found
-            {% else %}
                 {{ item_count }} items found
             {% endif %}
         </p>
@@ -94,12 +86,13 @@
 {% block content %}
 
 {# ---------- PERSONAL "FOR YOU" SECTION ---------- #}
-{% if personal_top_materials %}
+{# For You: show only when backend flagged it (manual brand selected and no type chosen) #}
+{% if personal_top_materials and show_for_you %}
 <section class="form-section" style="margin-bottom: 20px;">
     <div style="display:flex; justify-content:space-between; align-items:center;">
         <div>
             <h2 class="section-title">For you</h2>
-            <p class="subtitle">Recently viewed / used materials</p>
+            <p class="subtitle">Recently viewed</p>
         </div>
 
         {# blauwe vuilbak: alles verwijderen uit For you #}
@@ -119,10 +112,10 @@
             <article class="item-card">
                 <div class="item-main">
                     <h3 class="item-title">
-                        {{ m.brand }} — {{ m.material_type }}
+                        {{ m.brand }} - {{ m.material_type }}
                     </h3>
                     <p class="item-subtitle">
-                        ID: {{ m.material_id }} • {{ m.description }}
+                    {{ m.description }}
                     </p>
 
                     <div class="item-meta-row item-meta-spacing">
@@ -159,6 +152,7 @@
             </article>
         {% endfor %}
     </div>
+     {# keep the internal content unchanged - only top-level if changed #}
 </section>
 {% endif %}
 
@@ -179,25 +173,81 @@
         {% set reserved_total = reserved_totals.get(item.item_id, 0) %}
         <article class="item-card">
             <div class="item-main">
+                {# --- Header variations depending on context --- #}
+
+                {% if manual_items_view %}
+                    {# Manual material view (or brand+type search)#}
+                    <h3 class="item-title">
+                    </h3>
+                    <p class="item-subtitle">
+                    </p>
+                
+                {% elif search_brand_type %}
+                    {# brand+type search #}
+                    <h3 class="item-title">
+                        {{ item.material.material_type }}
+                    </h3>
+                    <p class="item-subtitle">
+                    </p>
+
+                {% elif is_search and search_brand_only %}
+                    {# Search by BRAND only: title shows brand; on cards show TYPE as primary info #}
+                    <h3 class="item-title">
+                        {{ item.material.material_type }}
+                    </h3>
+                    <p class="item-subtitle">
+                    </p>
+
+                {% elif is_search and search_type_only %}
+                    {# Search by TYPE/DESC only: title shows type; on cards show BRAND as primary info #}
+                    <h3 class="item-title">
+                        {{ item.material.brand }} — {{ item.material.material_type }}
+                    </h3>
+                    <p class="item-subtitle">
+                        {{ item.material.description }}
+                    </p>
+
+                {% elif is_search and search_misc_filters_only %}
+                    {# Search by zone/lifecycle/purpose/packaging only: title Inventory;
+                    show Brand - Type on cards #}
+                    <h3 class="item-title">
+                        {{ item.material.brand }} — {{ item.material.material_type }}
+                    </h3>
+                    <p class="item-subtitle">
+                        {{ item.material.description }}
+                    </p>
+
+                {% else %}
+                    {# Default fallback: show Brand — Type #}
+                    <h3 class="item-title">
+                        {{ item.material.brand }} — {{ item.material.material_type }}
+                    </h3>
+                    <p class="item-subtitle">
+                        {{ item.material.description }}
+                    </p>
+                {% endif %}
+
+                {# --- The standard meta row (always present) --- #}
                 <div class="item-meta-row item-meta-spacing">
                     <span><strong>Purpose:</strong> {{ item.purpose }}</span>
                     <span><strong>Packaging:</strong> {{ item.packaging }}</span>
                     <span><strong>Zone:</strong> {{ item.zone.zone_name }}</span>
                 </div>
 
+                {# Quantity / reserved block (keep as you had it) #}
                 <div class="item-meta-row">
                     <span class="quantity-block">
                         <strong>Quantity:</strong>
                         <form class="quantity-form"
-                              method="post"
-                              action="{{ url_for('main.update_quantity',
-                                                 item_id=item.item_id,
-                                                 brand=active_brand,
-                                                 material_id=active_material_id) }}">
+                            method="post"
+                            action="{{ url_for('main.update_quantity',
+                                                item_id=item.item_id,
+                                                brand=active_brand,
+                                                material_id=active_material_id) }}">
                             <input type="number"
-                                   name="quantity"
-                                   min="0"
-                                   value="{{ item.quantity }}">
+                                name="quantity"
+                                min="0"
+                                value="{{ item.quantity }}">
                             <button type="submit" class="quantity-save">Save</button>
                         </form>
                     </span>
@@ -207,10 +257,12 @@
                         <button type="button"
                                 class="link-button reserved-link"
                                 data-modal-target="reservations-{{ item.item_id }}">
-                            {{ reserved_total }}
+                            {{ reserved_totals.get(item.item_id, 0) }}
                         </button>
                     </span>
                 </div>
+
+                {# More details toggle/button (keep existing) #}
 
                 <button class="btn-link"
                         type="button"
@@ -359,17 +411,11 @@
                 </select>
             </label>
 
-            {% if active_brand %}
-                <input type="hidden" name="brand" value="{{ active_brand }}">
-            {% endif %}
-            {% if active_material_id %}
-                <input type="hidden" name="material_id" value="{{ active_material_id }}">
-            {% endif %}
-
             <div class="filter-actions">
                 <button type="submit" class="btn-primary">Apply filters</button>
                 <a href="{{ url_for('main.inventory') }}" class="btn-secondary">Clear</a>
             </div>
+
         </form>
     </div>
 </aside>

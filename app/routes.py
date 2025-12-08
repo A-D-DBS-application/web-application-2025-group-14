@@ -72,11 +72,11 @@ def inventory():
     if "username" not in session:
         return redirect(url_for("main.login"))
 
-    # --- Sidebar selection ---
+    # --- Sidebar (manual) selection ---
     active_brand = request.args.get("brand")
     active_material_id = request.args.get("material_id", type=int)
 
-    # --- Filters ---
+    # --- Search & Filter (search flow) ---
     q_type = request.args.get("q_type") or ""
     q_desc = request.args.get("q_desc") or ""
     q_brand = request.args.get("q_brand") or ""
@@ -85,9 +85,24 @@ def inventory():
     filter_purpose = request.args.get("filter_purpose") or ""
     filter_packaging = request.args.get("filter_packaging") or ""
 
+    # --- Make brand "active" if searching by it ---
+    if q_brand and not active_brand:
+        active_brand = q_brand
+
+    # determine whether this request is a "search" (right-panel) request:
+    is_search = any([
+        bool(q_type.strip()),
+        bool(q_desc.strip()),
+        bool(q_brand.strip()),
+        bool(q_zone.strip()),
+        bool(q_lifecycle.strip()),
+        bool(filter_purpose),
+        bool(filter_packaging),
+    ])
+
     company_name = session.get("company_name") or "Primetals"
 
-    # --- 1) Sidebar brands + materials ---
+    # --- 1) Sidebar brands + materials (unchanged) ---
     material_stats = (
         db.session.query(
             Material,
@@ -103,77 +118,188 @@ def inventory():
     brands_dict = {}
     for material, item_count in material_stats:
         brand_name = material.brand
+
+        # Case-insensitive active_brand bepalen
+        is_brand_active = False
+        if active_brand and brand_name.lower() == active_brand.lower():
+            is_brand_active = True
+
+        # Maak de brand entry aan als die nog niet bestaat
         if brand_name not in brands_dict:
             brands_dict[brand_name] = {
                 "name": brand_name,
                 "material_count": 0,
                 "materials": [],
+                "active": is_brand_active,  # flag voor template
             }
 
-        brands_dict[brand_name]["material_count"] += item_count
-        brands_dict[brand_name]["materials"].append(
-            {
+        # ----- Controleer of dit materiaal bij alle actieve filters past -----
+        material_matches = True
+
+        # Brand filter
+        if q_brand and brand_name.lower() != q_brand.lower():
+            material_matches = False
+
+        # Type filter
+        if q_type and q_type.lower() not in material.material_type.lower():
+            material_matches = False
+
+        # Description filter
+        if q_desc and q_desc.lower() not in material.description.lower():
+            material_matches = False
+
+        # Lifecycle filter
+        if q_lifecycle and q_lifecycle.lower() not in (material.lifecycle or "").lower():
+            material_matches = False
+
+        # Zone filter: check of er minstens één item in deze zone hoort
+        if q_zone:
+            has_matching_zone = any(
+                z.zone_name.lower().find(q_zone.lower()) != -1
+                for z in Zone.query.join(Item).filter(Item.material_id == material.material_id).all()
+            )
+            if not has_matching_zone:
+                material_matches = False
+
+        # Purpose filter: check of er minstens één item met dit purpose bestaat
+        if filter_purpose:
+            has_matching_purpose = any(
+                i.purpose == filter_purpose for i in Item.query.filter_by(material_id=material.material_id).all()
+            )
+            if not has_matching_purpose:
+                material_matches = False
+
+        # Packaging filter: check of er minstens één item met dit packaging bestaat
+        if filter_packaging:
+            has_matching_packaging = any(
+                i.packaging == filter_packaging for i in Item.query.filter_by(material_id=material.material_id).all()
+            )
+            if not has_matching_packaging:
+                material_matches = False
+
+        # Voeg enkel materials toe die matchen
+        if material_matches:
+            brands_dict[brand_name]["material_count"] += item_count
+            brands_dict[brand_name]["materials"].append({
                 "id": material.material_id,
                 "type": material.material_type,
                 "description": material.description,
                 "item_count": item_count,
-            }
-        )
-    brands = list(brands_dict.values())
+            })
 
-    # --- 2) Items main list ---
-    query = (
-        Item.query
-        .join(Material)
-        .join(Zone)
-        .filter(Material.company_name == company_name)
-    )
 
-    if active_brand:
-        query = query.filter(Material.brand == active_brand)
+
+            brands = list(brands_dict.values())
+
+
+
+    # --- Business rule: when to show items & For You ---
+    # Manual flow = user clicked sidebar brand/material (active_brand / active_material_id) and no search filters
+    is_manual_flow = (active_brand or active_material_id) and not is_search
+
+    # For You: show only when manual brand selected AND no material_id (so brand clicked, not type)
+    show_for_you = False
+    if is_manual_flow and active_brand and not active_material_id:
+        # Only show "For You" in this exact case (manual brand click + no type chosen)
+        show_for_you = True
+    if not active_brand and not is_search:
+        show_for_you = True
+
+    # Show items:
+    # - if search flow: always show items (search may be single-field, e.g. only q_brand)
+    # - or if manual flow and a specific material_id was clicked
+    show_items = False
+    if is_search:
+        show_items = True
+    elif is_manual_flow and active_material_id:
+        show_items = True
+    else:
+        show_items = False
+
+    # --- Page title logic ---
+    # Priority:
+    # 1) if manual material selected -> "Brand — Type"
+    # 2) if search and q_brand+q_type/q_desc -> "Brand — Type"
+    # 3) if search and q_brand only -> "Brand"
+    # 4) if search and q_type/q_desc only -> "Type"
+    # 5) if search with only zone/lifecycle/purpose/packaging -> "Inventory"
+    # 6) fallback -> "Inventory"
+    page_title = "Inventory"
+    active_material = None
+
     if active_material_id:
-        query = query.filter(Item.material_id == active_material_id)
+        active_material = Material.query.get(active_material_id)
+        if active_material:
+            page_title = f"{active_material.brand} — {active_material.material_type}"
+    elif is_search:
+        # q_brand + q_type/desc
+        if q_brand and (q_type or q_desc):
+            # show brand-type (use q_type if provided, else q_desc)
+            typ = q_type if q_type else q_desc
+            page_title = f"{q_brand} — {typ}"
+        elif q_brand:
+            page_title = q_brand
+        elif q_type or q_desc:
+            page_title = q_type if q_type else q_desc
+        else:
+            # only zone/lifecycle/purpose/packaging -> keep Inventory
+            page_title = "Inventory"
+    elif active_brand:
+        # manual brand clicked (no search)
+        page_title = active_brand
 
-    if q_type:
-        query = query.filter(Material.material_type.ilike(f"%{q_type}%"))
-    if q_desc:
-        query = query.filter(Material.description.ilike(f"%{q_desc}%"))
-    if q_brand:
-        query = query.filter(Material.brand.ilike(f"%{q_brand}%"))
-    if q_zone:
-        query = query.filter(Zone.zone_name.ilike(f"%{q_zone}%"))
-    if q_lifecycle:
-        query = query.filter(Material.lifecycle.ilike(f"%{q_lifecycle}%"))
-    if filter_purpose:
-        query = query.filter(Item.purpose == filter_purpose)
-    if filter_packaging:
-        query = query.filter(Item.packaging == filter_packaging)
+    # --- 2) Items query: build only if show_items True,
+    # and in search flow allow all filters combined (case-insensitive partial matches)
+    items = []
+    if show_items:
+        query = (
+            Item.query
+            .join(Material)
+            .join(Zone)
+            .filter(Material.company_name == company_name)
+        )
 
-    items = query.order_by(Material.brand, Material.material_type).all()
+        # Manual material selected -> restrict to that material
+        if active_material_id and not is_search:
+            query = query.filter(Item.material_id == active_material_id)
+        else:
+            # SEARCH flow: apply any provided filters (partial, case-insensitive)
+            if q_brand:
+                query = query.filter(Material.brand.ilike(f"%{q_brand}%"))
+            if q_type:
+                query = query.filter(Material.material_type.ilike(f"%{q_type}%"))
+            if q_desc:
+                query = query.filter(Material.description.ilike(f"%{q_desc}%"))
+            if q_zone:
+                query = query.filter(Zone.zone_name.ilike(f"%{q_zone}%"))
+            if q_lifecycle:
+                query = query.filter(Material.lifecycle.ilike(f"%{q_lifecycle}%"))
+            if filter_purpose:
+                query = query.filter(Item.purpose == filter_purpose)
+            if filter_packaging:
+                query = query.filter(Item.packaging == filter_packaging)
+
+        items = query.order_by(Material.brand, Material.material_type).all()
+
     item_count = len(items)
 
-    # --- 3) Active material (voor titel + event logging) ---
-    active_material = (
-        Material.query.get(active_material_id) if active_material_id else None
-    )
-
-    # 👉 **EVENT LOGGEN** als er een materiaal actief is
+    # --- EVENT LOGGING: only log when the user manually clicked a material (sidebar) ---
     username_pk = session.get("username_pk") or session.get("username")
     if active_material and username_pk:
         record_material_event(
             username=username_pk,
             material_id=active_material.material_id,
             event_type="view",
-            total_events=0 #!
+            total_events=0
         )
 
-    # --- 4) Reserved totals per item ---
+    # --- Reserved totals per item ---
     reserved_totals = {
         item.item_id: sum(r.quantity for r in item.reservations)
         for item in items
     }
 
-    # --- 5) Winkelmandje: alle reservations ---
+    # --- Reservations (cart) list (unchanged) ---
     reservations_raw = (
         db.session.query(Reservation, Item, Material, Zone)
         .join(Item, Reservation.item_id == Item.item_id)
@@ -201,7 +327,7 @@ def inventory():
 
     zones = Zone.query.filter_by(company_name=company_name).order_by(Zone.zone_name).all()
 
-    # --- 6) FOR YOU: persoonlijke top-materialen ---
+    # --- FOR YOU retrieval (unchanged) ---
     personal_top_materials = []
     if username_pk:
         stats = (
@@ -242,6 +368,24 @@ def inventory():
                     }
                 )
 
+    # --- Flags for template to render the correct item-cards layout ---
+    # manual_items_view: items are shown from a manual material selection (sidebar material click),
+    # or when searching with q_brand+q_type/q_desc or when active_material set -> show the compact/limited fields.
+    manual_items_view = False
+    if (not is_search and active_material_id) or active_material:
+        manual_items_view = True
+    
+    search_brand_type = False
+    if is_search and q_brand and (q_type or q_desc):
+        search_brand_type = True
+
+    # search variants for item-card decisions
+    search_brand_only = is_search and q_brand and not (q_type or q_desc)
+    search_type_only = is_search and (q_type or q_desc) and not q_brand
+    search_misc_filters_only = is_search and not (q_brand or q_type or q_desc) and any([q_zone, q_lifecycle, filter_purpose, filter_packaging])
+
+    
+
     return render_template(
         "inventory.html",
         username=session["username"],
@@ -262,9 +406,17 @@ def inventory():
         q_lifecycle=q_lifecycle,
         filter_purpose=filter_purpose,
         filter_packaging=filter_packaging,
-        personal_top_materials=personal_top_materials,   # 👈 belangrijk
+        personal_top_materials=personal_top_materials,
+        show_items=show_items,
+        show_for_you=show_for_you,
+        is_search=is_search,
+        manual_items_view=manual_items_view,
+        search_brand_type =search_brand_type,
+        search_brand_only=search_brand_only,
+        search_type_only=search_type_only,
+        search_misc_filters_only=search_misc_filters_only,
+        page_title=page_title,
     )
-
 
 # ---------------------------------------------------------------------------
 # ADD INVENTORY ITEM (material + zone + item)
