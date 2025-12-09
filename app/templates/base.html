@@ -42,6 +42,8 @@
                 <span class="material-icons">add</span>
             </a>
 
+            
+
             <!-- Reservations / Cart -->
             <button class="icon-btn"
                     data-panel-open="reservations-panel"
@@ -49,6 +51,11 @@
                     title="Reservations">
                 <span class="material-icons">shopping_cart</span>
             </button>
+
+            <!-- Bin / discard icon -->
+            <a href="{{ url_for('main.bin_page') }}" class="icon-btn" title="Discarded items">
+                <span class="material-icons">delete</span>
+            </a>
 
             <!-- Logout -->
             <a href="{{ url_for('main.logout') }}" class="icon-btn" title="Logout">

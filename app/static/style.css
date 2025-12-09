@@ -905,3 +905,232 @@ body {
     align-items: flex-end;
     gap: 4px; /* klein beetje ruimte tussen View en vuilbak */
 }
+.page-container {
+    width: 90%;
+    margin: 0 auto;
+    padding-top: 20px;
+}
+
+.page-title {
+    font-size: 28px;
+    font-weight: 600;
+    margin-bottom: 20px;
+}
+
+.table-wrapper {
+    overflow-x: auto;
+}
+
+.styled-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 15px;
+    background-color: white;
+}
+
+.styled-table th {
+    background-color: #1e2a38;
+    color: white;
+    text-align: left;
+    padding: 12px;
+}
+
+.styled-table td {
+    padding: 10px;
+    border-bottom: 1px solid #ddd;
+}
+
+.styled-table tr:nth-child(even) {
+    background-color: #f5f5f5;
+}
+
+.empty-message {
+    color: #666;
+    margin-top: 30px;
+    font-style: italic;
+}
+/* Background overlay */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.6);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+}
+
+/* Box */
+.modal-box {
+    background: white;
+    padding: 25px;
+    width: 420px;
+    border-radius: 12px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.25);
+    position: relative;
+}
+
+.close-btn {
+    position: absolute;
+    right: 12px;
+    top: 10px;
+    font-size: 26px;
+    cursor: pointer;
+}
+
+.modal-section {
+    margin-top: 18px;
+}
+
+.modal-section input {
+    width: 100px;
+    padding: 6px;
+    margin-right: 8px;
+}
+
+.modal-section button {
+    padding: 6px 12px;
+    border: none;
+    background: #1e2a38;
+    color: white;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.danger-btn {
+    background: #c82333 !important;
+}
+.modal-wide {
+    width: 550px !important;
+}
+
+.rm-item-title {
+    font-size: 20px;
+    font-weight: 700;
+    margin: 10px 0 0 0;
+}
+
+.rm-item-zone {
+    margin: 0 0 20px 0;
+    font-size: 15px;
+    color: #555;
+}
+
+.return-subtitle {
+    margin-bottom: 15px;
+    color: #444;
+}
+
+.return-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 15px 0;
+}
+
+.return-row input {
+    width: 90px;
+    padding: 6px;
+}
+
+.btn-dark {
+    background: #1e2a38;
+    color: white;
+    border-radius: 20px;
+    padding: 8px 14px;
+    border: none;
+}
+
+.btn-light {
+    background: #f0f0f0;
+    border: 1px solid #ccc;
+    padding: 8px 14px;
+    border-radius: 20px;
+}
+
+.btn-danger {
+    background: #b40017;
+    color: white;
+    padding: 8px 14px;
+    border-radius: 20px;
+    border: none;
+}
+
+.modal-close-btn {
+    position: absolute;
+    right: 18px;
+    top: 18px;
+    background: none;
+    border: none;
+    font-size: 26px;
+    cursor: pointer;
+}
+.changed-subform {
+    display: grid;
+    grid-template-columns: 120px 1fr;
+    gap: 8px 12px;
+    margin-left: 10px;
+}
+.changed-subform input,
+.changed-subform select {
+    padding: 6px;
+}
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+.modal-box {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    position: relative;
+    z-index: 10000;
+}
+.modal-close-btn {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    font-size: 22px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    z-index: 10001 !important;
+}
+/* Zorg dat knoppen echt klikbaar voelen */
+.btn-dark, 
+.btn-light, 
+.btn-danger {
+    cursor: pointer;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+/* Hover-effect */
+.btn-dark:hover, 
+.btn-light:hover, 
+.btn-danger:hover {
+    filter: brightness(0.9);
+}
+
+/* Click / active animatie */
+.btn-dark:active, 
+.btn-light:active, 
+.btn-danger:active {
+    transform: scale(0.96);
+}
+.changed-subform label,
+.changed-subform input,
+.changed-subform select {
+    display: block;
+    margin-top: 8px;
+}
+
+
