@@ -47,6 +47,10 @@
     - Database Design
 
         https://supabase.com/dashboard/project/dlklychiybmzxpqfadks/database/schemas
+    
+    - Powerpoint
+
+        https://docs.google.com/presentation/d/1trnFEss4Kgarh_zSrZbQBuhaR5IGdWPBHITv0d-TXtY/edit?usp=sharing
 
     - Conceptual phase
 

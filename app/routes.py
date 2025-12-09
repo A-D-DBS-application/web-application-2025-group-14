@@ -9,20 +9,37 @@ from .models import db, Material, Zone, Item, Reservation, User, Company, Materi
 from flask import session
 from werkzeug.security import generate_password_hash, check_password_hash
 
-def record_material_event(username: str, material_id: int, event_type: str, total_events: int) -> None:
-    """
-    Slaat een view / reserve event op voor de For-you logica.
-    """
+def record_material_event(username: str, material_id: int, event_type: str) -> None:
+
+    #Houdt per gebruiker + materiaal + type event (view/reserve) bij:
+    #hoeveel keer het gebeurd is (total_events)
+    #wanneer het laatst gebeurd is (date)
+
     if not username or not material_id:
         return
 
-    ev = MaterialEvent(
+    # Kijk of er al een record bestaat voor deze user + materiaal + type
+    ev = MaterialEvent.query.filter_by(
         username=username,
         material_id=material_id,
         event_type=event_type,
-        total_events=total_events,
-    )
-    db.session.add(ev)
+    ).first()
+
+    if ev:
+        # Bestaat al → teller ophogen en datum updaten
+        ev.total_events = (ev.total_events or 0) + 1
+        ev.date = datetime.utcnow()
+    else:
+        # Eerste keer → nieuw record
+        ev = MaterialEvent(
+            username=username,
+            material_id=material_id,
+            event_type=event_type,
+            total_events=1,
+            date=datetime.utcnow(),
+        )
+        db.session.add(ev)
+
     db.session.commit()
 
 
@@ -291,7 +308,6 @@ def inventory():
             username=username_pk,
             material_id=active_material.material_id,
             event_type="view",
-            total_events=0
         )
 
     # --- Reserved totals per item ---
@@ -328,22 +344,35 @@ def inventory():
 
     zones = Zone.query.filter_by(company_name=company_name).order_by(Zone.zone_name).all()
 
-    # --- FOR YOU retrieval (unchanged) ---
+    # --- FOR YOU retrieval ---
     personal_top_materials = []
     if username_pk:
         stats = (
             db.session.query(
                 MaterialEvent.material_id,
-                func.count(
-                    case((MaterialEvent.event_type == "view", 1))
+
+                # totaal views per materiaal (voor deze user)
+                func.sum(
+                    case(
+                        (MaterialEvent.event_type == "view", MaterialEvent.total_events),
+                        else_=0
+                    )
                 ).label("views"),
-                func.count(
-                    case((MaterialEvent.event_type == "reserve", 1))
+
+                # totaal reservaties per materiaal
+                func.sum(
+                    case(
+                        (MaterialEvent.event_type == "reserve", MaterialEvent.total_events),
+                        else_=0
+                    )
                 ).label("reservations"),
+
+                # laatste activiteit (view of reserve)
                 func.max(MaterialEvent.date).label("last_date"),
             )
             .filter(MaterialEvent.username == username_pk)
             .group_by(MaterialEvent.material_id)
+            # sortering: meest recent eerst
             .order_by(func.max(MaterialEvent.date).desc())
             .limit(5)
             .all()
@@ -368,6 +397,7 @@ def inventory():
                         "last_date": row.last_date,
                     }
                 )
+
 
     # --- Flags for template to render the correct item-cards layout ---
     # manual_items_view: items are shown from a manual material selection (sidebar material click),
@@ -565,7 +595,6 @@ def use_item(item_id: int):
             username=username_pk,
             material_id=item.material_id,
             event_type="reserve",
-            total_events=0 #!
         )
 
         return redirect(
