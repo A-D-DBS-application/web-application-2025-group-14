@@ -515,7 +515,7 @@ def use_item(item_id: int):
 
     # Calculate reserved and available
     already_reserved = sum(r.quantity for r in item.reservations)
-    available = item.quantity - already_reserved
+    available = item.quantity
 
     if request.method == "POST":
         username = request.form["username"].strip()

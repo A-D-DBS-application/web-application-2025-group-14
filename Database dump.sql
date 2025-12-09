@@ -1,5 +1,5 @@
 -- ========================
--- PRIMETALS DATA
+-- PRIMETALS DATA - Excel
 -- ========================
 
 INSERT INTO company (company_name) VALUES ('Primetals');
@@ -200,6 +200,12 @@ INSERT INTO item (
 (23, 19, 2, 'sell', 'none',   78, NULL),
 (24, 22, 1, 'sell', 'open',   10, '10 stuks in doos ');
 
+-- SELECT setval(pg_get_serial_sequence('material','material_id'), COALESCE(MAX(material_id),0)) FROM material;
+-- SELECT setval(pg_get_serial_sequence('zone','zone_id'), COALESCE(MAX(zone_id),0)) FROM zone;
+-- SELECT setval(pg_get_serial_sequence('item','item_id'), COALESCE(MAX(item_id),0)) FROM item;
+
+-- ====== TEST DATA =======
+
 INSERT INTO reservation (
     reservation_id,
     item_id,
@@ -217,15 +223,30 @@ INSERT INTO reservation (
 (7, 9,  'Frédéric De Haes', '2025-01-20 13:12:00', 1,  'Kleine herstelling'),
 (8, 24, 'Frédéric De Haes', '2025-01-21 09:00:00', 2,  'Eindcontrole lijn 4');
 
+
+INSERT INTO app_user (username, password, company_name) VALUES
+('Medewerker',   'wachtwoord', 'Primetals');
+
+INSERT INTO reservation (reservation_id, item_id, username, date, quantity, project) VALUES
+(9, 1,  'Medewerker', '2025-02-10 09:00:00', 2, 'Magazijn inventaris'),
+(10, 7,  'Medewerker', '2025-02-11 14:20:00', 1, 'Herstelling schakelkast'),
+(11, 14, 'Medewerker', '2025-02-12 08:45:00', 3, 'Upgrade lijn 3'),
+(12, 22, 'Medewerker', '2025-02-13 16:30:00', 4, 'Klantdemo voorbereiding');
+
+
+
 -- ========================
--- TEST DATA
+-- TEST DATA: UGent
+-- Material IDs beginnen bij 25
+-- Zone IDs beginnen bij 4
+-- Item IDs beginnen bij 25
+-- Reservation IDs beginnen bij 13
 -- ========================
 
 INSERT INTO company (company_name) VALUES ('UGent');
 
 INSERT INTO app_user (username, password, company_name) VALUES
 ('Groep 14',     'wachtwoord', 'UGent'),
-('Medewerker',   'wachtwoord', 'Primetals'),
 ('Test Student', 'wachtwoord', 'UGent');
 
 INSERT INTO material (
@@ -237,17 +258,17 @@ INSERT INTO material (
     lifecycle,
     company_name
 ) VALUES
-(101, 'E-METER',  'Digitale multimeter voor labo',     'VOLTCRAFT',   45,  'GOOD', 'UGent'),
-(102, 'CABLESET', 'Set krokodilklemmen',               'BRENNENSTUHL', 8,  'GOOD', 'UGent'),
-(103, 'TEMP-NTC', 'Temperatuursensor NTC 10k',         'OMRON',        3,  'NEW',  'UGent'),
-(104, 'ARD-MEGA', 'Arduino Mega ontwikkelbord',        'Arduino',     38,  'NEW',  'UGent'),
-(105, 'PWR-30V',  'Labvoeding 0–30V 5A',               'PeakTech',   120,  'USED', 'UGent'),
-(106, 'RES-BOX',  'Assortiment weerstanden 600 stuks', 'Velleman',    12,  'NEW',  'UGent');
+(25, 'E-METER',  'Digitale multimeter voor labo',     'VOLTCRAFT',   45,  'GOOD', 'UGent'),
+(26, 'CABLESET', 'Set krokodilklemmen',               'BRENNENSTUHL', 8,  'GOOD', 'UGent'),
+(27, 'TEMP-NTC', 'Temperatuursensor NTC 10k',         'OMRON',        3,  'NEW',  'UGent'),
+(28, 'ARD-MEGA', 'Arduino Mega ontwikkelbord',        'Arduino',     38,  'NEW',  'UGent'),
+(29, 'PWR-30V',  'Labvoeding 0–30V 5A',               'PeakTech',   120,  'USED', 'UGent'),
+(30, 'RES-BOX',  'Assortiment weerstanden 600 stuks', 'Velleman',    12,  'NEW', 'UGent');
 
 INSERT INTO zone (zone_id, zone_name, company_name) VALUES
-(10, 'EL1', 'UGent'),
-(11, 'EL2', 'UGent'),
-(12, 'ROB', 'UGent');
+(4, 'EL1', 'UGent'),
+(5, 'EL2', 'UGent'),
+(6, 'ROB', 'UGent');
 
 INSERT INTO item (
     item_id,
@@ -258,12 +279,12 @@ INSERT INTO item (
     quantity,
     comment
 ) VALUES
-(201, 101, 10, 'keep', 'open',   12, 'Gebruikt in basiselectriciteit'),
-(202, 102, 10, 'keep', 'open',   30, NULL),
-(203, 103, 11, 'keep', 'closed', 50, 'NTC 10k sensoren'),
-(204, 104, 11, 'keep', 'closed', 8,  'Voor projecten microcontrollers'),
-(205, 105, 12, 'keep', 'none',   4,  'Beperkte voorraad'),
-(206, 106, 10, 'keep', 'closed', 15, 'Gebruik in alle practica');
+(25, 25, 4, 'keep', 'open',   12, 'Gebruikt in basiselectriciteit'),
+(26, 26, 4, 'keep', 'open',   30, NULL),
+(27, 27, 5, 'keep', 'closed', 50, 'NTC 10k sensoren'),
+(28, 28, 5, 'keep', 'closed', 8,  'Voor projecten microcontrollers'),
+(29, 29, 6, 'keep', 'none',   4,  'Beperkte voorraad'),
+(30, 30, 4, 'keep', 'closed', 15, 'Gebruik in alle practica');
 
 INSERT INTO reservation (
     reservation_id,
@@ -273,38 +294,31 @@ INSERT INTO reservation (
     quantity,
     project
 ) VALUES
-(301, 201, 'Groep 14',     '2025-02-01 09:00:00', 4, 'Practicum Elektriciteit'),
-(302, 204, 'Groep 14',     '2025-02-03 14:30:00', 2, 'Microcontrollerproject'),
-(303, 205, 'Groep 14',     '2025-02-05 10:15:00', 1, 'Robotica Testopstelling'),
-(304, 202, 'Groep 14',     '2025-02-06 11:45:00', 6, 'Spanning/Stroom proef'),
-(305, 203, 'Test Student', '2025-02-07 08:15:00', 5, 'PID Temperatuurregeling Demo');
-
-INSERT INTO reservation (
-    reservation_id,
-    item_id,
-    username,
-    date,
-    quantity,
-    project
-) VALUES
-(306, 1,  'Medewerker', '2025-02-10 09:00:00', 2, 'Magazijn inventaris'),
-(307, 7,  'Medewerker', '2025-02-11 14:20:00', 1, 'Herstelling schakelkast'),
-(308, 14, 'Medewerker', '2025-02-12 08:45:00', 3, 'Upgrade lijn 3'),
-(309, 22, 'Medewerker', '2025-02-13 16:30:00', 4, 'Klantdemo voorbereiding');
-
-INSERT INTO reservation (
-    reservation_id,
-    item_id,
-    username,
-    date,
-    quantity,
-    project
-) VALUES
-(310, 201, 'Test Student', '2025-02-08 10:30:00', 3, 'Sensoropstelling test'),
-(311, 204, 'Test Student', '2025-02-09 13:10:00', 1, 'Arduino demo'),
-(312, 206, 'Test Student', '2025-02-10 15:55:00', 5, 'Weerstanden oefenreeks'),
-(313, 202, 'Test Student', '2025-02-11 11:05:00', 4, 'Basis labo oefening');
+(13, 25, 'Groep 14',     '2025-02-01 09:00:00', 4, 'Practicum Elektriciteit'),
+(14, 28, 'Groep 14',     '2025-02-03 14:30:00', 2, 'Microcontrollerproject'),
+(15, 29, 'Groep 14',     '2025-02-05 10:15:00', 1, 'Robotica Testopstelling'),
+(16, 26, 'Groep 14',     '2025-02-06 11:45:00', 6, 'Spanning/Stroom proef'),
+(17, 27, 'Test Student', '2025-02-07 08:15:00', 5, 'PID Temperatuurregeling Demo'),
+(18, 25, 'Test Student', '2025-02-08 10:30:00', 3, 'Sensoropstelling test'),
+(19, 28, 'Test Student', '2025-02-09 13:10:00', 1, 'Arduino demo'),
+(20, 30, 'Test Student', '2025-02-10 15:55:00', 5, 'Weerstanden oefenreeks'),
+(21, 26, 'Test Student', '2025-02-11 11:05:00', 4, 'Basis labo oefening');
 
 -- ========================
 -- End of dump
 -- ========================
+
+
+-- ID's synchroniseren:
+
+-- Material
+SELECT setval(pg_get_serial_sequence('material','material_id'), COALESCE(MAX(material_id),0)) FROM material;
+
+-- Zone
+SELECT setval(pg_get_serial_sequence('zone','zone_id'), COALESCE(MAX(zone_id),0)) FROM zone;
+
+-- Item
+SELECT setval(pg_get_serial_sequence('item','item_id'), COALESCE(MAX(item_id),0)) FROM item;
+
+-- Reservation
+SELECT setval(pg_get_serial_sequence('reservation','reservation_id'), COALESCE(MAX(reservation_id),0)) FROM reservation;
