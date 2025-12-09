@@ -1133,4 +1133,8 @@ body {
     margin-top: 8px;
 }
 
+.icon-btn.active-filter {
+    background-color: #00ffd9;  /* blauw als er een filter actief is */
+    color: white;
+}
 

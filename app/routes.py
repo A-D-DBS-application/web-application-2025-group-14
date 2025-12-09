@@ -134,7 +134,10 @@ def inventory():
         .all()
     )
 
+    # Ensure brands always exists to avoid UnboundLocalError
     brands_dict = {}
+    brands = []
+
     for material, item_count in material_stats:
         brand_name = material.brand
 
@@ -160,11 +163,11 @@ def inventory():
             material_matches = False
 
         # Type filter
-        if q_type and q_type.lower() not in material.material_type.lower():
+        if q_type and q_type.lower() not in (material.material_type or "").lower():
             material_matches = False
 
         # Description filter
-        if q_desc and q_desc.lower() not in material.description.lower():
+        if q_desc and q_desc.lower() not in (material.description or "").lower():
             material_matches = False
 
         # Lifecycle filter
@@ -206,9 +209,19 @@ def inventory():
                 "item_count": item_count,
             })
 
+    # Zet brands altijd (ook als er geen match is)
+    brands = list(brands_dict.values())
 
+    # Toon brands met minstens één matching material
+    brands = [
+        b for b in brands_dict.values()
+        if b.get("material_count", 0) > 0
+    ]
 
-            brands = list(brands_dict.values())
+    # Zodat geen bugs indien brand niet bestaat
+    if is_search and q_brand:
+        # check exact-case-insensitive presence in sidebar brands
+        brand_matches = any(b["name"].lower() == q_brand.lower() for b in brands)
 
 
 

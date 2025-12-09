@@ -30,7 +30,7 @@
         <div class="top-header-right">
 
             <!-- Search -->
-            <button class="icon-btn" 
+            <button class="icon-btn {% if is_search %}active-filter{% endif %}" 
                     data-panel-open="filter-panel"
                     data-fallback-url="{{ url_for('main.inventory', open='filter') }}"
                     title="Search">
