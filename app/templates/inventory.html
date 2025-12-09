@@ -544,7 +544,7 @@
         <div class="return-row">
             <label>Quantity to discard:</label>
             <input type="number" id="qty_discard" min="0">
-            <button class="btn-danger" onclick="submitDiscard()">Move to bin</button>
+            <button class="btn-danger" onclick="submitDiscard()">Discard item</button>
         </div>
 
         <!-- hidden item id -->
@@ -612,9 +612,14 @@ function submitChanged() {
         return;
     }
 
-    const id = document.getElementById("rm_material_id").value;
+    const itemId = document.getElementById("rm_item_id").value;
+    const username = document.getElementById("rm_username").value;
 
-    // Extra fields
+    if (!username || username.trim() === "") {
+        alert("ERROR: Username missing — cannot update reservation!");
+        return;
+    }
+
     const zone = document.getElementById("changed_zone").value;
     const purpose = document.getElementById("changed_purpose").value;
     const packaging = document.getElementById("changed_packaging").value;
@@ -624,7 +629,8 @@ function submitChanged() {
     form.action = "/item/mark_changed";
 
     form.innerHTML = `
-        <input type="hidden" name="material_id" value="${id}">
+        <input type="hidden" name="item_id" value="${itemId}">
+        <input type="hidden" name="username" value="${username}">
         <input type="hidden" name="quantity" value="${qty}">
         <input type="hidden" name="zone_name" value="${zone}">
         <input type="hidden" name="purpose" value="${purpose}">
@@ -634,6 +640,7 @@ function submitChanged() {
     document.body.appendChild(form);
     form.submit();
 }
+
 
 document.getElementById("qty_changed").addEventListener("input", function () {
     const qty = parseInt(this.value);
@@ -658,25 +665,28 @@ if (qty > 0) {
 function submitDiscard() {
     const qty = parseInt(document.getElementById("qty_discard").value);
     const max = parseInt(document.getElementById("qty_discard").max);
-    
-    if (qty < 1 || qty > max) { 
-        alert("Invalid quantity: must be between 1 and " + max); 
-        return; 
-    }
+    const itemId = document.getElementById("rm_item_id").value;
+    const username = document.getElementById("rm_username").value;
 
+    if (qty < 1 || qty > max) {
+        alert("Invalid quantity: must be between 1 and " + max);
+        return;
+    }
 
     const form = document.createElement("form");
     form.method = "POST";
-    form.action = "/item/mark_changed";
+    form.action = "/item/discard";
 
     form.innerHTML = `
-        <input type="hidden" name="item_id" value="${id}">
-        <input type="hidden" name="quantity" value="${qty}"> 
+        <input type="hidden" name="item_id" value="${itemId}">
+        <input type="hidden" name="username" value="${username}">
+        <input type="hidden" name="quantity" value="${qty}">
     `;
 
     document.body.appendChild(form);
     form.submit();
 }
+
 
 
 function enforceMax(inputId) {

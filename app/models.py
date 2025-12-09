@@ -120,19 +120,3 @@ class MaterialEvent(db.Model):
     def __repr__(self):
         return f"<MaterialEvent: {self.event_type} by user {self.username} to material={self.material_id} at {self.date}>"
 
-class BinItem(db.Model):
-    __tablename__ = "bin_item"
-
-    bin_id = db.Column(db.Integer, primary_key=True)  # serial
-    item_id = db.Column(db.Integer, db.ForeignKey('item.item_id', ondelete="SET NULL"), nullable=True)
-    quantity = db.Column(db.Integer, nullable=False)
-    reason = db.Column(db.String)
-    username = db.Column(db.String, db.ForeignKey('app_user.username', ondelete="SET NULL"))
-    created_at = db.Column(db.DateTime, server_default=db.func.current_timestamp(), nullable=False)
-
-    # ORM relationships
-    item = db.relationship("Item", backref="bin_entries", lazy=True)
-    user = db.relationship("User", backref="bin_actions", lazy=True)
-
-    def __repr__(self):
-        return f"<BinItem bin_id={self.bin_id}, item_id={self.item_id}, qty={self.quantity}>"
