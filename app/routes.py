@@ -1,10 +1,11 @@
 from datetime import datetime, timedelta
 
-from flask import Blueprint, render_template, request, redirect, url_for
+from flask import Blueprint, render_template, request, redirect, url_for, abort, flash
 from sqlalchemy import func, case
 from sqlalchemy.orm import joinedload
+from flask_login import login_required, current_user
 
-from .models import db, Material, Zone, Item, Reservation, User, Company, MaterialEvent
+from .models import db, Material, Zone, Item, Reservation, User, Company, MaterialEvent, BinItem
 from flask import session
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -803,3 +804,180 @@ def remove_for_you_material(material_id):
     db.session.commit()
 
     return redirect(url_for("main.inventory"))
+
+@main.route("/bin")
+def bin_page():
+    discarded_items = get_discarded_items_from_db()  # jouw DB call
+    return render_template("bin.html", discarded_items=discarded_items)
+
+def get_discarded_items_from_db():
+    results = (
+        db.session.query(
+            BinItem,
+            Item,
+            Material,
+            Zone
+        )
+        .join(Item, BinItem.item_id == Item.item_id, isouter=True)
+        .join(Material, Material.material_id == Item.material_id, isouter=True)
+        .join(Zone, Zone.zone_id == Item.zone_id, isouter=True)
+        .order_by(BinItem.created_at.desc())
+        .all()
+    )
+
+    discarded = []
+
+    for bin_item, item, material, zone in results:
+        discarded.append({
+            "bin_id": bin_item.bin_id,
+            "quantity": bin_item.quantity,
+            "reason": bin_item.reason,
+            "username": bin_item.username,
+            "created_at": bin_item.created_at,
+
+            # Joined item data
+            "item_id": item.item_id if item else None,
+            "material_type": material.material_type if material else None,
+            "description": material.description if material else None,
+            "zone": zone.zone_name if zone else None
+        })
+
+    return discarded
+
+@main.route("/bin/add", methods=["POST"])
+@login_required
+def add_to_bin():
+    item_id = request.form.get("item_id", type=int)
+    qty = request.form.get("quantity", type=int)
+
+    if not item_id or qty is None or qty < 1:
+        flash("Invalid discard quantity.", "error")
+        return redirect(request.referrer or url_for("main.inventory"))
+
+    # 1️⃣ Item ophalen
+    item = Item.query.get(item_id)
+    if not item:
+        abort(404)
+
+    # 2️⃣ Check of er genoeg quantity is
+    if item.quantity < qty:
+        flash("Not enough quantity available to discard!", "error")
+        return redirect(request.referrer or url_for("main.inventory"))
+
+    # 3️⃣ Quantity verlagen
+    item.quantity -= qty
+
+    # 4️⃣ Nieuwe bin_item record
+    new_bin_entry = BinItem(
+        item_id=item.item_id,
+        description=item.material.description,
+        zone=item.zone.zone_name,
+        quantity=qty,
+        reason="discarded",
+        user=current_user.username,
+        discarded_at=datetime.utcnow(),
+    )
+
+    db.session.add(new_bin_entry)
+    db.session.commit()
+
+    flash(f"{qty} items moved to bin.", "success")
+
+    # Terug naar inventory
+    return redirect(url_for("main.inventory"))
+
+@main.route("/item/return_to_stock", methods=["POST"])
+def return_to_stock():
+    item_id = request.form.get("item_id", type=int)
+    qty = request.form.get("quantity", type=int)
+    username = request.form.get("username")  # komt uit formulier
+
+    if not item_id or not qty or qty < 1:
+        flash("Invalid return quantity.", "error")
+        return redirect(request.referrer or url_for("main.inventory"))
+
+    # ITEM ophalen
+    item = Item.query.get(item_id)
+    if not item:
+        flash("Item not found.", "error")
+        return redirect(url_for("main.inventory"))
+
+    # RESERVATION zoeken van de gebruiker (meegegeven via POST)
+    reservation = Reservation.query.filter_by(
+        item_id=item_id,
+        username=username
+    ).first()
+
+    if not reservation:
+        flash("Reservation not found for this user.", "error")
+        return redirect(url_for("main.inventory"))
+
+    # Kan niet meer teruggeven dan gereserveerd
+    if qty > reservation.quantity:
+        flash("Return quantity exceeds reserved amount.", "error")
+        return redirect(url_for("main.inventory"))
+
+    # 1. Aantal terug toevoegen aan stock
+    item.quantity += qty
+
+    # 2. Reservatie verminderen of verwijderen
+    reservation.quantity -= qty
+    if reservation.quantity <= 0:
+        db.session.delete(reservation)
+
+    db.session.commit()
+
+    flash("Item returned to stock!", "success")
+    return redirect(url_for("main.inventory"))
+
+
+@main.route("/item/mark_changed", methods=["POST"])
+def mark_changed():
+    material_id = request.form.get("item_id")
+    quantity = int(request.form.get("quantity"))
+    purpose = request.form.get("purpose")
+    packaging = request.form.get("packaging")
+    zone_name = request.form.get("zone_name")
+
+    # ✅ Haal company_name van ingelogde gebruiker uit session
+    company_name = session.get("company_name")
+    if company_name is None:
+        return "Not logged in — company unavailable", 400
+
+    # 1. Zoek zone binnen de juiste company
+    zone = Zone.query.filter_by(
+        zone_name=zone_name,
+        company_name=company_name
+    ).first()
+
+    # 2. Bestaat de zone niet → maak nieuwe zone
+    if zone is None:
+        zone = Zone(
+            zone_name=zone_name,
+            company_name=company_name   # <-- NIET hardcoded
+        )
+        db.session.add(zone)
+        db.session.commit()  # nodig om zone.zone_id te krijgen
+
+    zone_id = zone.zone_id  # altijd geldig
+
+    # 3. Nieuw item aanmaken
+    comment_text = f"Changed item moved to zone {zone_name}"
+
+    new_item = Item(
+        material_id=material_id,
+        zone_id=zone_id,
+        purpose=purpose,
+        packaging=packaging,
+        quantity=quantity,
+        comment=comment_text
+    )
+
+    db.session.add(new_item)
+    db.session.commit()
+
+    return redirect("/inventory")
+
+
+
+
