@@ -960,6 +960,40 @@ def mark_changed():
 
     return redirect(url_for("main.inventory", material_id=material_id))
 
+@main.route("/item/return_to_stock", methods=["POST"])
+def return_to_stock():
+    item_id = request.form.get("item_id", type=int)
+    qty = request.form.get("quantity", type=int)
+    username = request.form.get("username")
+
+    if not item_id or qty is None or qty < 1:
+        return "Invalid return request", 400
+
+    item = Item.query.get_or_404(item_id)
+
+    # Zoek de reservatie
+    reservation = Reservation.query.filter_by(
+        item_id=item_id,
+        username=username
+    ).first()
+
+    if not reservation:
+        return "Reservation not found", 404
+
+    # Verlaag de reservatie
+    reservation.quantity -= qty
+
+    # Als reservatie leeg wordt → verwijderen
+    if reservation.quantity <= 0:
+        db.session.delete(reservation)
+
+    # Voeg de usable quantity terug toe aan stock
+    item.quantity += qty
+
+    db.session.commit()
+
+    return redirect(url_for("main.inventory"))
+
 
 
 
