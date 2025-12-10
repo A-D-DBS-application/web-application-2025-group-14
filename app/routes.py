@@ -60,7 +60,7 @@ def login():
 
         # user bestaat niet of wachtwoord fout (plain text vergelijking)
         if not user or user.password != password:
-            return render_template("login.html", error="Ongeldige login")
+            return render_template("login.html", error="Invalid login")
 
         # alles ok → sessie vullen
         session.permanent = True
