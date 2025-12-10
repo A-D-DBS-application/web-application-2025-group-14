@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+
+{% block title %}Return Item{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header">
+            <h2>Return Item</h2>
+        </div>
+        <div class="card-body">
+            <h3 class="card-title">{{ item.material.brand }} - {{ item.material.material_type }}</h3>
+            <p class="card-text">
+                Total Reserved Quantity: <span id="total-reserved">{{ reservation.quantity }}</span>
+            </p>
+
+            <hr>
+
+            <form method="POST" action="{{ url_for('main.return_item', reservation_id=reservation.reservation_id) }}" id="return-form">
+                
+                <!-- Sectie 1: Return to Stock -->
+                <div class="mb-3 p-3 border rounded">
+                    <h5>1. Return Unchanged Items</h5>
+                    <p class="text-muted small">(Zone: {{ item.zone.zone_name }} )( Purpose: {{ item.purpose }} )( Packaging: {{ item.packaging }})</p>
+                    <div class="row align-items-center">
+                        <label for="qty_return_to_stock" class="col-sm-3 col-form-label">Quantity:</label>
+                        <input type="number" class="form-control quantity-input" id="qty_return_to_stock" name="qty_return_to_stock" min="0" max="{{ reservation.quantity }}">
+                    </div>
+                </div>
+
+                <!-- Sectie 2: Mark as Changed -->
+                <div class="mb-3 p-3 border rounded">
+                    <h5>2. Return Changed Items</h5>
+                    <div class="row align-items-center mb-2">
+                        <label for="qty_mark_changed" class="col-sm-3 col-form-label">Quantity:</label>
+                        <input type="number" class="form-control quantity-input" id="qty_mark_changed" name="qty_mark_changed" min="0" max="{{ reservation.quantity }}">
+                    </div>
+                    <div id="changed-fields" class="mt-3" style="display: none;">
+                        <div class="row mb-2">
+                            <label for="zone_name" class="col-sm-3 col-form-label">New Zone:</label>
+                            <div class="col-sm-9">
+                                <input type="text" class="form-control" id="zone_name" name="zone_name" placeholder="enter a new zone">
+                            </div>
+                        </div>
+                        <div class="row mb-2">
+                            <label for="purpose" class="col-sm-3 col-form-label">New Purpose:</label>
+                            <div class="col-sm-9">
+                                <input list="purpose-datalist" class="form-control" id="purpose" name="purpose" placeholder="select a new purpose">
+                                <datalist id="purpose-datalist">
+                                    {% for purpose in purposes %}
+                                        <option value="{{ purpose }}">
+                                    {% endfor %}
+                                </datalist>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <label for="packaging" class="col-sm-3 col-form-label">New Packaging:</label>
+                            <div class="col-sm-9">
+                                <input list="package-datalist" class="form-control" id="packaging" name="packaging" placeholder="select a new packaging">
+                                <datalist id="package-datalist">
+                                    {% for package in packaging %}
+                                        <option value="{{ packaging }}">
+                                    {% endfor %}
+                                </datalist>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sectie 3: Discard Item -->
+                <div class="mb-3 p-3 border rounded">
+                    <h5>3. Used Item</h5>
+                     <div class="row align-items-center">
+                        <label for="qty_discard" class="col-sm-3 col-form-label">Quantity to Discard:</label>
+                        <input type="number" class="form-control quantity-input" id="qty_discard" name="qty_discard" min="0" max="{{ reservation.quantity }}">
+                    </div>
+                </div>
+                <div class="d-flex justify-content-between align-items-center mt-4">
+                    <div>
+                        
+                    <div>
+                        <h5></h5>
+                        <a href="{{ url_for('main.inventory') }}" class="btn btn-secondary">Cancel</a>
+                        <button type="submit" class="btn btn-primary" id="apply-button">Apply Changes</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const qtyInputs = document.querySelectorAll('.quantity-input');
+    const totalReserved = parseInt(document.getElementById('total-reserved').textContent, 10);
+    const remainingQtyEl = document.getElementById('remaining-qty');
+    const changedFields = document.getElementById('changed-fields');
+    const qtyChangedInput = document.getElementById('qty_mark_changed');
+
+    function updateTotal() {
+        let totalProcessed = 0;
+        qtyInputs.forEach(input => totalProcessed += (parseInt(input.value, 10) || 0));
+        const remaining = totalReserved - totalProcessed;
+        remainingQtyEl.textContent = remaining;
+        remainingQtyEl.style.color = remaining < 0 ? 'red' : 'black';
+        document.getElementById('apply-button').disabled = remaining < 0;
+    }
+
+    qtyInputs.forEach(input => input.addEventListener('input', updateTotal));
+    
+    qtyChangedInput.addEventListener('input', function() {
+        changedFields.style.display = (parseInt(this.value, 10) || 0) > 0 ? 'block' : 'none';
+    });
+
+    updateTotal(); // Initial calculation
+});
+</script>
+{% endblock %}
