@@ -410,7 +410,7 @@
 
             <div class="filter-actions">
                 <button type="submit" class="btn-primary">Apply filters</button>
-                <a href="{{ url_for('main.inventory') }}" class="btn-secondary">Clear</a>
+                <a href="{{ url_for('main.inventory', clear_filters=1) }}" class="btn-secondary">Clear</a>
             </div>
 
         </form>

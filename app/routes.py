@@ -116,18 +116,64 @@ def inventory():
     if "username" not in session:
         return redirect(url_for("main.login"))
 
+    # --- Clear filters if requested ---
+    if request.args.get("clear_filters") == "1":
+        session.pop("filters", None)
+        return redirect(url_for("main.inventory"))
+
     # --- Sidebar (manual) selection ---
     active_brand = request.args.get("brand")
     active_material_id = request.args.get("material_id", type=int)
 
     # --- Search & Filter (search flow) ---
-    q_type = request.args.get("q_type") or ""
-    q_desc = request.args.get("q_desc") or ""
-    q_brand = request.args.get("q_brand") or ""
-    q_zone = request.args.get("q_zone") or ""
-    q_lifecycle = request.args.get("q_lifecycle") or ""
-    filter_purpose = request.args.get("filter_purpose") or ""
-    filter_packaging = request.args.get("filter_packaging") or ""
+    # Get filters from URL params first, fallback to session if not in URL
+    q_type = request.args.get("q_type")
+    q_desc = request.args.get("q_desc")
+    q_brand = request.args.get("q_brand")
+    q_zone = request.args.get("q_zone")
+    q_lifecycle = request.args.get("q_lifecycle")
+    filter_purpose = request.args.get("filter_purpose")
+    filter_packaging = request.args.get("filter_packaging")
+
+    # If filters are provided in URL, save them to session
+    if any([q_type, q_desc, q_brand, q_zone, q_lifecycle, filter_purpose, filter_packaging]):
+        session["filters"] = {
+            "q_type": q_type or "",
+            "q_desc": q_desc or "",
+            "q_brand": q_brand or "",
+            "q_zone": q_zone or "",
+            "q_lifecycle": q_lifecycle or "",
+            "filter_purpose": filter_purpose or "",
+            "filter_packaging": filter_packaging or "",
+        }
+    # If no filters in URL but session has filters, use session filters
+    elif "filters" in session and not any([active_brand, active_material_id]):
+        saved_filters = session["filters"]
+        q_type = saved_filters.get("q_type", "")
+        q_desc = saved_filters.get("q_desc", "")
+        q_brand = saved_filters.get("q_brand", "")
+        q_zone = saved_filters.get("q_zone", "")
+        q_lifecycle = saved_filters.get("q_lifecycle", "")
+        filter_purpose = saved_filters.get("filter_purpose", "")
+        filter_packaging = saved_filters.get("filter_packaging", "")
+        # Redirect with session filters in URL to make them visible and persistent
+        return redirect(url_for("main.inventory",
+            q_type=q_type if q_type else None,
+            q_desc=q_desc if q_desc else None,
+            q_brand=q_brand if q_brand else None,
+            q_zone=q_zone if q_zone else None,
+            q_lifecycle=q_lifecycle if q_lifecycle else None,
+            filter_purpose=filter_purpose if filter_purpose else None,
+            filter_packaging=filter_packaging if filter_packaging else None,
+        ))
+    # Normalize all filter values to strings to avoid None.strip errors
+    q_type = q_type or ""
+    q_desc = q_desc or ""
+    q_brand = q_brand or ""
+    q_zone = q_zone or ""
+    q_lifecycle = q_lifecycle or ""
+    filter_purpose = filter_purpose or ""
+    filter_packaging = filter_packaging or ""
 
     # --- Make brand "active" if searching by it ---
     if q_brand and not active_brand:
@@ -668,8 +714,6 @@ def update_quantity(item_id: int):
 
     item = Item.query.get_or_404(item_id)
     new_quantity = max(int(request.form["quantity"]), 0)
-<<<<<<< HEAD
-
     # Capture current filters to preserve navigation state
     brand = request.args.get("brand")
     material_id = request.args.get("material_id")
@@ -687,13 +731,6 @@ def update_quantity(item_id: int):
     item.quantity = new_quantity
     db.session.commit()
     return redirect(url_for("main.inventory", brand=brand, material_id=material_id))
-=======
-    item.quantity = new_quantity
-    db.session.commit()
-
-    # Ga terug naar de pagina waar het formulier vandaan kwam (met filters)
-    return redirect_back()
->>>>>>> 14d544a45e2cca265c12b933d93fe20c7253ab5e
 
 
 
