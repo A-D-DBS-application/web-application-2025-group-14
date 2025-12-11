@@ -1495,5 +1495,11 @@ body {
     font-weight: 600;
 }
 
+.content,
+.content-right,
+.main-container {
+    padding-right: 0 !important;
+    margin-right: 0 !important;
+}
 
 
