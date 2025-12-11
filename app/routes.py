@@ -8,6 +8,8 @@ from flask_login import login_required, current_user
 from .models import db, Material, Zone, Item, Reservation, User, Company, MaterialEvent
 from flask import session
 from werkzeug.security import generate_password_hash, check_password_hash
+from urllib.parse import urlparse
+
 
 def record_material_event(username: str, material_id: int, event_type: str) -> None:
 
@@ -41,6 +43,30 @@ def record_material_event(username: str, material_id: int, event_type: str) -> N
         db.session.add(ev)
 
     db.session.commit()
+
+def redirect_back(fallback_endpoint: str = "main.inventory"):
+    """
+    Stuur de gebruiker terug naar de pagina waar hij vandaan kwam (request.referrer),
+    inclusief eventuele filters in de querystring.
+
+    Als er geen referrer is, of de referrer heeft geen query-parameters
+    (dus een 'schone' pagina), ga dan gewoon naar de standaard inventory-pagina.
+    """
+    ref = request.referrer
+    if not ref:
+        # Geen referrer → gewoon naar inventory
+        return redirect(url_for(fallback_endpoint))
+
+    parsed = urlparse(ref)
+
+    # Als er geen querystring is (bv. 'http://.../'), beschouwen we dat
+    # als een 'schone' pagina en sturen we naar de gewone inventory.
+    if not parsed.query:
+        return redirect(url_for(fallback_endpoint))
+
+    # Anders: gewoon terug naar de vorige URL mét filters
+    return redirect(ref)
+
 
 
 
@@ -311,7 +337,15 @@ def inventory():
             if filter_packaging:
                 query = query.filter(Item.packaging == filter_packaging)
 
-        items = query.order_by(Material.brand, Material.material_type).all()
+        items = query.order_by(
+            Material.brand,
+            Material.material_type,
+            Zone.zone_name,
+            Item.purpose,
+            Item.packaging,
+            Item.item_id,      # als tie-breaker
+        ).all()
+
 
     item_count = len(items)
 
@@ -616,13 +650,8 @@ def use_item(item_id: int):
             event_type="reserve",
         )
 
-        return redirect(
-            url_for(
-                "main.inventory",
-                brand=request.args.get("brand"),
-                material_id=request.args.get("material_id"),
-            )
-        )
+        return redirect_back()
+
 
     return render_template("use_item.html", item=item, available=available)
 
@@ -635,8 +664,11 @@ def use_item(item_id: int):
 # ---------------------------------------------------------------------------
 @main.route("/item/<int:item_id>/quantity", methods=["POST"])
 def update_quantity(item_id: int):
+    """Update quantity from the inline form on the inventory page."""
+
     item = Item.query.get_or_404(item_id)
     new_quantity = max(int(request.form["quantity"]), 0)
+<<<<<<< HEAD
 
     # Capture current filters to preserve navigation state
     brand = request.args.get("brand")
@@ -655,6 +687,13 @@ def update_quantity(item_id: int):
     item.quantity = new_quantity
     db.session.commit()
     return redirect(url_for("main.inventory", brand=brand, material_id=material_id))
+=======
+    item.quantity = new_quantity
+    db.session.commit()
+
+    # Ga terug naar de pagina waar het formulier vandaan kwam (met filters)
+    return redirect_back()
+>>>>>>> 14d544a45e2cca265c12b933d93fe20c7253ab5e
 
 
 
@@ -877,10 +916,7 @@ def delete_reservation():
     db.session.delete(reservation)
     db.session.commit()
 
-    brand = request.form.get("brand")
-    material_id = request.form.get("material_id")
-
-    return redirect(url_for("main.inventory", brand=brand, material_id=material_id))
+    return redirect_back()
 
 
 # ---------------------------------------------------------------------------
