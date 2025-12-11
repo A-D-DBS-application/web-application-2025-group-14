@@ -40,9 +40,11 @@ body {
 }
 
 .main {
-    padding: 24px 32px;
+    /* top  right  bottom  left */
+    padding: 24px 0 24px 32px;
     background: #f9fafb;
 }
+
 
 .main-header {
     margin-bottom: 12px;
@@ -1494,12 +1496,4 @@ body {
     padding: 9px 16px;
     font-weight: 600;
 }
-
-.content,
-.content-right,
-.main-container {
-    padding-right: 0 !important;
-    margin-right: 0 !important;
-}
-
 
