@@ -315,6 +315,9 @@ def inventory():
 
     item_count = len(items)
 
+    # Items that were just changed (one redirect ago)
+    recently_changed_items = session.pop("recently_changed_items", [])
+
     # --- EVENT LOGGING: only log when the user manually clicked a material (sidebar) ---
     username_pk = session.get("username_pk") or session.get("username")
     if active_material and username_pk:
@@ -462,6 +465,7 @@ def inventory():
         search_type_only=search_type_only,
         search_misc_filters_only=search_misc_filters_only,
         page_title=page_title,
+        recently_changed_items=recently_changed_items,
     )
 
 # ---------------------------------------------------------------------------
@@ -634,21 +638,22 @@ def update_quantity(item_id: int):
     item = Item.query.get_or_404(item_id)
     new_quantity = max(int(request.form["quantity"]), 0)
 
-    item.quantity = new_quantity
-
-    # Als item verwijderd moet worden
-    if item.quantity <= 0:
-        db.session.delete(item)
-        db.session.commit()
-        # ⭐ BELANGRIJK: redirect naar inventory ZONDER parameters!
-        return redirect(url_for("main.inventory"))
-
-    # Anders, normale update
-    db.session.commit()
-
-    # Terug naar inventory-met-filters (optioneel)
+    # Capture current filters to preserve navigation state
     brand = request.args.get("brand")
     material_id = request.args.get("material_id")
+
+    # Compute reserved qty for safety
+    reserved_qty = sum(r.quantity for r in item.reservations)
+
+    if new_quantity <= 0 and reserved_qty <= 0:
+        # safe to delete if nothing reserved and qty set to 0
+        db.session.delete(item)
+        db.session.commit()
+        return redirect(url_for("main.inventory", brand=brand, material_id=material_id))
+
+    # otherwise update quantity (cannot go negative)
+    item.quantity = new_quantity
+    db.session.commit()
     return redirect(url_for("main.inventory", brand=brand, material_id=material_id))
 
 
@@ -768,12 +773,15 @@ def return_item(reservation_id):
         # --- Verwerk actie: Terug naar stock ---
         if qty_stock > 0:
             item.quantity += qty_stock
-            flash(f"{qty_stock} item(s) teruggezet in stock.", "success")
+            flash(f"{qty_stock} item(s) returned to stock.", "success")
 
         # --- Verwerk actie: Weggooien ---
         if qty_discard > 0:
             # Items worden niet teruggestort in de voorraad, maar gewoon afgeschreven.
-            flash(f"{qty_discard} item(s) weggegooid.", "success")
+            flash(f"{qty_discard} item(s) discarded.", "success")
+
+        # Collect item ids that should be highlighted as "recently changed"
+        recently_changed_ids = session.get("recently_changed_items", [])
 
         # --- Verwerk actie: Markeer als gewijzigd ---
         if qty_changed > 0:
@@ -803,16 +811,26 @@ def return_item(reservation_id):
 
             if existing_item:
                 existing_item.quantity += qty_changed
+                target_item_id = existing_item.item_id
             else:
-                db.session.add(Item(
+                new_item = Item(
                     material_id=item.material_id,
                     zone_id=zone.zone_id,
                     purpose=purpose,
                     packaging=packaging,
                     quantity=qty_changed,
-                    comment=f"Item verplaatst vanuit reservatie door {reservation.username}"
-                ))
-            flash(f"{qty_changed} item(s) gemarkeerd als gewijzigd.", "success")
+                    comment=f"Item moved from reservation by {reservation.username}"
+                )
+                db.session.add(new_item)
+                db.session.flush()  # ensure item_id is available
+                target_item_id = new_item.item_id
+
+            flash(f"{qty_changed} item(s) marked as changed.", "success")
+
+            # Keep track for a single follow-up render of the inventory page
+            if target_item_id:
+                if target_item_id not in recently_changed_ids:
+                    recently_changed_ids.append(target_item_id)
 
         # --- Werk de oorspronkelijke reservatie bij ---
         reservation.quantity -= total_qty_processed
@@ -821,12 +839,19 @@ def return_item(reservation_id):
 
         # Commit alle wijzigingen in één transactie
         db.session.commit()
+
+        # Persist the list for the next request and highlight those cards
+        session["recently_changed_items"] = recently_changed_ids
         return redirect(url_for("main.inventory"))
 
     # --- GET: Toon de return-pagina ---
     company_name = item.material.company_name
     zones = Zone.query.filter_by(company_name=company_name).order_by(Zone.zone_name).all()
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return render_template("return_item_partial.html", reservation=reservation, item=item, zones=zones)
+
     return render_template("return_item.html", reservation=reservation, item=item, zones=zones)
+
 
 # ---------------------------------------------------------------------------
 # DELETE RESERVATION (cart panel)

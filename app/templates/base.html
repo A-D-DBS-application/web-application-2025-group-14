@@ -97,6 +97,22 @@
 
 <!-- PANEL + INTERACTION SCRIPT -->
 <script>
+document.addEventListener('DOMContentLoaded', () => {
+    const params = new URLSearchParams(window.location.search);
+    const open = params.get('open');
+    if (open) {
+        const panelMap = {
+            filter: 'filter-panel',
+            reservations: 'reservations-panel',
+        };
+        const targetId = panelMap[open];
+        const panel = targetId && document.getElementById(targetId);
+        if (panel) {
+            panel.classList.add('is-open');
+        }
+    }
+});
+
 document.addEventListener('click', (event) => {
 
     // --- TOGGLE "More details" ---
@@ -115,6 +131,9 @@ const openPanelBtn = event.target.closest('[data-panel-open]');
 if (openPanelBtn) {
     const targetId = openPanelBtn.getAttribute('data-panel-open');
     const panel = document.getElementById(targetId);
+
+    // Sluit eerst alle open side-panels om overlap te vermijden
+    document.querySelectorAll('.side-panel.is-open').forEach(p => p.classList.remove('is-open'));
 
     if (panel) {
         // Panel bestaat → open

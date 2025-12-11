@@ -206,6 +206,29 @@ body {
     color: #6b7280;
 }
 
+.item-subtitle-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1;
+}
+
+.chip-changed {
+    background: #e0f2fe;
+    color: #075985;
+    border: 1px solid #bae6fd;
+}
+
 .item-header-actions {
     display: flex;
     gap: 4px;
@@ -1137,4 +1160,340 @@ body {
     background-color: #00ffd9;  /* blauw als er een filter actief is */
     color: white;
 }
+/* HIDDEN BY DEFAULT */
+#return-modal {
+    display: none;
+}
+#return-modal.active {
+    display: block;
+}
+
+#return-modal .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+}
+
+#return-modal .modal-dialog {
+    position: fixed;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    background: white;
+    padding: 25px;
+    width: 450px;
+    max-width: 90%;
+    border-radius: 8px;
+}
+#returnModal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    display: none;
+    z-index: 9999; /* SUPER BELANGRIJK */
+}
+#returnModal .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    z-index: 9998;
+}
+#returnModal .modal-dialog {
+    position: fixed;
+    z-index: 10000;
+    background: white;
+    padding: 25px;
+    border-radius: 15px;
+    width: 450px;
+    max-width: 90%;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+/* FULLSCREEN MODAL WRAPPER */
+#returnModal {
+    position: fixed;
+    inset: 0;
+    display: none;
+    z-index: 9999;
+}
+
+/* DARK BACKDROP */
+#returnModal .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    z-index: 9998;
+}
+
+/* POPUP BOX */
+#returnModal .modal-dialog {
+    position: fixed;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    background: #ffffff;
+    padding: 30px 40px;
+    width: 520px;
+    max-height: 90vh;
+    overflow-y: auto;
+    border-radius: 20px;
+    z-index: 10000;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+}
+
+/* HEADER */
+#returnModal .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+#returnModal h2 {
+    margin: 0;
+}
+
+/* CONTENT LAYOUT */
+#returnModal .return-wrapper {
+    font-size: 16px;
+}
+
+/* TITLES */
+#returnModal h3, 
+#returnModal h4 {
+    margin-top: 20px;
+    margin-bottom: 8px;
+}
+
+/* LABELS & SPACING */
+#returnModal label {
+    font-weight: 600;
+    margin-top: 10px;
+    display: block;
+}
+
+/* INPUTS */
+#returnModal input[type="number"],
+#returnModal input[type="text"],
+#returnModal select {
+    width: 100%;
+    padding: 8px 10px;
+    font-size: 15px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    margin-bottom: 15px;
+    box-sizing: border-box;
+}
+
+/* APPLY BUTTON */
+#returnModal button.btn-primary {
+    width: 100%;
+    padding: 10px 12px;
+    font-size: 16px;
+    background: #0b1c2c;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    margin-top: 10px;
+}
+
+#returnModal button.btn-primary:hover {
+    background: #122c45;
+}
+/* ---------------------------- */
+/*  MODAL WRAPPER (fullscreen)  */
+/* ---------------------------- */
+
+#returnModal {
+    position: fixed;
+    inset: 0;
+    display: none;
+    z-index: 9999;
+}
+
+/* BACKDROP */
+#returnModal .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    z-index: 9998;
+}
+
+/* ---------------------------- */
+/*       POPUP CONTAINER        */
+/* ---------------------------- */
+
+#returnModal .modal-dialog {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+
+    background: #ffffff;
+    padding: 32px 36px;
+
+    /* 👇 DIT maakt de modal compact en mooi */
+    width: 480px;          /* small width */
+    max-width: 90%;        /* responsive */
+    max-height: 75vh;      /* voorkomt gigantische pop-up */
+    overflow-y: auto;      /* scroll alleen nodig binnen de box */
+
+    border-radius: 18px;
+    z-index: 10000;
+    box-shadow: 0 8px 35px rgba(0,0,0,0.23);
+
+    animation: popupIn 0.25s ease-out;
+}
+/* ---- RETURN MODAL (clean, centered) ---- */
+.return-modal {
+    position: fixed;
+    inset: 0;
+    display: none;
+    justify-content: center;
+    align-items: center;
+    background: rgba(17, 24, 39, 0.45);
+    backdrop-filter: blur(3px);
+    z-index: 1200;
+}
+
+.return-modal.is-open {
+    display: flex;
+}
+
+.return-backdrop {
+    position: absolute;
+    inset: 0;
+}
+
+.return-dialog {
+    position: relative;
+    background: #ffffff;
+    width: 90%;
+    max-width: 520px;
+    max-height: 80vh;
+    border-radius: 18px;
+    padding: 24px 24px 20px;
+    overflow-y: auto;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+}
+
+.return-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 18px;
+}
+
+.return-title {
+    margin: 2px 0 6px;
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.return-stats {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(90px, 1fr));
+    gap: 8px;
+}
+
+.stat {
+    padding: 8px 10px;
+    border-radius: 10px;
+    background: #f3f4f6;
+}
+
+.stat-label {
+    display: block;
+    font-size: 12px;
+    color: #6b7280;
+}
+
+.stat-value {
+    font-weight: 700;
+    font-size: 16px;
+}
+
+.return-form {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.return-block {
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 14px 16px;
+    background: #f9fafb;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.6);
+}
+
+.block-head h4 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.block-head p {
+    margin: 2px 0 8px;
+    color: #6b7280;
+    font-size: 12px;
+}
+
+.block-body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.block-body label {
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.block-body input,
+.block-body select {
+    padding: 8px 10px;
+    border-radius: 10px;
+    border: 1px solid #d1d5db;
+    font-size: 14px;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.block-body input:focus,
+.block-body select:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.changed-fields {
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px dashed #e5e7eb;
+    display: none;
+    gap: 6px;
+}
+
+.return-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.return-actions .btn-secondary {
+    border-radius: 10px;
+    padding: 8px 14px;
+}
+
+.return-actions .btn-primary {
+    border-radius: 10px;
+    padding: 9px 16px;
+    font-weight: 600;
+}
+
+
 

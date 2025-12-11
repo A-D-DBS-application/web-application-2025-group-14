@@ -178,34 +178,26 @@
                 {% if manual_items_view %}
                     {# Manual material view (or brand+type search)#}
                     <h3 class="item-title">
+                        {{ item.material.brand }} — {{ item.material.material_type }}
                     </h3>
-                    <p class="item-subtitle">
-                    </p>
                 
                 {% elif search_brand_type %}
                     {# brand+type search #}
                     <h3 class="item-title">
                         {{ item.material.material_type }}
                     </h3>
-                    <p class="item-subtitle">
-                    </p>
 
                 {% elif is_search and search_brand_only %}
                     {# Search by BRAND only: title shows brand; on cards show TYPE as primary info #}
                     <h3 class="item-title">
                         {{ item.material.material_type }}
                     </h3>
-                    <p class="item-subtitle">
-                    </p>
 
                 {% elif is_search and search_type_only %}
                     {# Search by TYPE/DESC only: title shows type; on cards show BRAND as primary info #}
                     <h3 class="item-title">
                         {{ item.material.brand }} — {{ item.material.material_type }}
                     </h3>
-                    <p class="item-subtitle">
-                        {{ item.material.description }}
-                    </p>
 
                 {% elif is_search and search_misc_filters_only %}
                     {# Search by zone/lifecycle/purpose/packaging only: title Inventory;
@@ -213,19 +205,24 @@
                     <h3 class="item-title">
                         {{ item.material.brand }} — {{ item.material.material_type }}
                     </h3>
-                    <p class="item-subtitle">
-                        {{ item.material.description }}
-                    </p>
 
                 {% else %}
                     {# Default fallback: show Brand — Type #}
                     <h3 class="item-title">
                         {{ item.material.brand }} — {{ item.material.material_type }}
                     </h3>
+                {% endif %}
+
+                <div class="item-subtitle-row">
                     <p class="item-subtitle">
                         {{ item.material.description }}
                     </p>
-                {% endif %}
+                    {% if item.item_id in recently_changed_items %}
+                    <span class="chip chip-changed" title="Recently changed">
+                        Changed
+                    </span>
+                    {% endif %}
+                </div>
 
                 {# --- The standard meta row (always present) --- #}
                 <div class="item-meta-row item-meta-spacing">
@@ -453,10 +450,12 @@
                         <td>
 <!-- Keuze A: Link naar de nieuwe, gedetailleerde return-pagina -->
                             <a href="{{ url_for('main.return_item', reservation_id=r.reservation_id) }}"
-                               class="icon-btn"
-                               title="Process reservation">
+                                class="icon-btn return-btn"
+                                data-reservation-id="{{ r.reservation_id }}"
+                                title="Process reservation">
                                 <span class="material-icons">assignment_return</span>
                             </a>
+
                         </td>
                     </tr>
                 {% endfor %}
@@ -467,5 +466,112 @@
         {% endif %}
     </div>
 </aside>
+<!-- UNIVERSAL RETURN MODAL (middle layout) -->
+<div id="returnModal" class="return-modal">
+    <div class="return-backdrop" onclick="closeReturnModal()"></div>
+    <div class="return-dialog">
+
+        <div class="modal-header">
+            <h2>Return Item</h2>
+            <button class="modal-close" onclick="closeReturnModal()">×</button>
+        </div>
+
+        <div id="returnModalContent" class="modal-body">
+            <!-- De inhoud van return_item.html komt hier via AJAX -->
+        </div>
+    </div>
+</div>
+<script>
+
+// Attach handlers for the return modal (runs after the partial is injected)
+function initReturnModalContent() {
+    const container = document.getElementById("returnModalContent");
+    if (!container) return;
+
+    const qtyInputs = container.querySelectorAll(".quantity-input");
+    const totalReservedEl = container.querySelector("#total-reserved");
+    const remainingQtyEl = container.querySelector("#remaining-qty");
+    const changedFields = container.querySelector("#changed-fields");
+    const qtyChangedInput = container.querySelector("#qty_mark_changed");
+    const applyBtn = container.querySelector("#apply-button");
+
+    if (!totalReservedEl || !remainingQtyEl) return;
+
+    const totalReserved = parseInt(totalReservedEl.textContent, 10) || 0;
+
+    function updateTotal() {
+        let totalProcessed = 0;
+        qtyInputs.forEach(input => {
+            const val = parseInt(input.value, 10);
+            totalProcessed += isNaN(val) ? 0 : val;
+        });
+        const remaining = totalReserved - totalProcessed;
+        remainingQtyEl.textContent = remaining;
+        remainingQtyEl.style.color = remaining < 0 ? "red" : "inherit";
+        if (applyBtn) applyBtn.disabled = remaining < 0;
+    }
+
+    qtyInputs.forEach(input => input.addEventListener("input", updateTotal));
+
+    if (qtyChangedInput && changedFields) {
+        qtyChangedInput.addEventListener("input", () => {
+            const val = parseInt(qtyChangedInput.value, 10) || 0;
+            changedFields.style.display = val > 0 ? "block" : "none";
+        });
+    }
+
+    updateTotal();
+}
+
+// Wanneer men op het icoontje klikt
+document.addEventListener("DOMContentLoaded", () => {
+
+    document.querySelectorAll(".return-btn").forEach(btn => {
+        btn.addEventListener("click", async (e) => {
+            e.preventDefault();
+            const reservationId = btn.dataset.reservationId;
+
+            const response = await fetch(`/reservation/${reservationId}/return`, {
+                headers: { "X-Requested-With": "XMLHttpRequest" }
+            });
+
+            const html = await response.text();
+
+            const container = document.getElementById("returnModalContent");
+            container.innerHTML = html;
+            initReturnModalContent();
+            const modal = document.getElementById("returnModal");
+            modal.classList.add("is-open");
+            modal.style.display = "flex";
+        });
+    });
+
+});
+
+</script>
+<script>
+
+function enforceMax(inputId) {
+    const input = document.getElementById(inputId);
+    const max = parseInt(input.max);
+    let val = parseInt(input.value);
+
+    if (val > max) {
+        alert("Quantity cannot exceed reserved amount (" + max + ")");
+        input.value = max;
+    }
+    if (val < 0) {
+        input.value = 0;
+    }
+}
+
+function closeReturnModal() {
+    const modal = document.getElementById("returnModal");
+    modal.classList.remove("is-open");
+    modal.style.display = "none";
+}
+</script>
+
+
 
 {% endblock %}

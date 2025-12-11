@@ -1,0 +1,106 @@
+{# Partial used inside the return modal (loaded via fetch) #}
+<div class="return-content">
+    <header class="return-header">
+        <div>
+            <p class="muted small">Reservation #{{ reservation.reservation_id }}</p>
+            <h3 class="return-title">{{ item.material.brand }} — {{ item.material.material_type }}</h3>
+            <p class="muted">
+                Zone: {{ item.zone.zone_name }} · Purpose: {{ item.purpose }} · Packaging: {{ item.packaging }}
+            </p>
+        </div>
+        <div class="return-stats">
+            <div class="stat">
+                <span class="stat-label">Reserved</span>
+                <span class="stat-value" id="total-reserved">{{ reservation.quantity }}</span>
+            </div>
+            <div class="stat">
+                <span class="stat-label">Remaining</span>
+                <span class="stat-value" id="remaining-qty">{{ reservation.quantity }}</span>
+            </div>
+        </div>
+    </header>
+
+    <form method="post"
+          action="{{ url_for('main.return_item', reservation_id=reservation.reservation_id) }}"
+          id="return-form"
+          class="return-form">
+
+        <section class="return-block">
+            <div class="block-head">
+                <h4>1) Return unchanged</h4>
+                <p class="muted small">Back to the original location</p>
+            </div>
+            <div class="block-body">
+                <label for="qty_return_to_stock">Quantity</label>
+                <input type="number"
+                       class="quantity-input"
+                       id="qty_return_to_stock"
+                       name="qty_return_to_stock"
+                       min="0"
+                       max="{{ reservation.quantity }}">
+            </div>
+        </section>
+
+        <section class="return-block">
+            <div class="block-head">
+                <h4>2) Return but changed</h4>
+                <p class="muted small">Fill in the new properties</p>
+            </div>
+            <div class="block-body">
+                <label for="qty_mark_changed">Quantity</label>
+                <input type="number"
+                       class="quantity-input"
+                       id="qty_mark_changed"
+                       name="qty_mark_changed"
+                       min="0"
+                       max="{{ reservation.quantity }}">
+
+                <div id="changed-fields" class="changed-fields" style="display:none;">
+                    <label for="zone_name">New zone</label>
+                    <input type="text"
+                           id="zone_name"
+                           name="zone_name"
+                           placeholder="Enter a new zone">
+
+                    <label for="purpose">New purpose</label>
+                    <select id="purpose" name="purpose">
+                        <option value="" selected disabled>Select a new purpose</option>
+                        <option value="sell">sell</option>
+                        <option value="keep">keep</option>
+                        <option value="dispose">dispose</option>
+                    </select>
+
+                    <label for="packaging">New packaging</label>
+                    <select id="packaging" name="packaging">
+                        <option value="" selected disabled>Select a new packaging</option>
+                        <option value="open">open</option>
+                        <option value="closed">closed</option>
+                        <option value="none">none</option>
+                    </select>
+                </div>
+            </div>
+        </section>
+
+        <section class="return-block">
+            <div class="block-head">
+                <h4>3) Used / discard</h4>
+                <p class="muted small">Remove the quantity that was consumed</p>
+            </div>
+            <div class="block-body">
+                <label for="qty_discard">Quantity</label>
+                <input type="number"
+                       class="quantity-input"
+                       id="qty_discard"
+                       name="qty_discard"
+                       min="0"
+                       max="{{ reservation.quantity }}">
+            </div>
+        </section>
+
+        <div class="return-actions">
+            <button type="button" class="btn-secondary" onclick="closeReturnModal()">Cancel</button>
+            <button type="submit" class="btn-primary" id="apply-button">Apply changes</button>
+        </div>
+    </form>
+</div>
+
