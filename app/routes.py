@@ -3,7 +3,6 @@ from datetime import datetime, timedelta
 from flask import Blueprint, render_template, request, redirect, url_for, abort, flash
 from sqlalchemy import func, case
 from sqlalchemy.orm import joinedload
-from flask_login import login_required, current_user
 
 from .models import db, Material, Zone, Item, Reservation, User, Company, MaterialEvent
 from flask import session
@@ -230,24 +229,24 @@ def inventory():
         # ----- Controleer of dit materiaal bij alle actieve filters past -----
         material_matches = True
 
-        # Brand filter
-        if q_brand and brand_name.lower() != q_brand.lower():
+        # Brand filter: only check q_brand if active_brand is not set (active_brand takes precedence)
+        if not active_brand and q_brand and brand_name.lower() != q_brand.lower():
             material_matches = False
 
         # Type filter
-        if q_type and q_type.lower() not in (material.material_type or "").lower():
+        if q_type and q_type.strip() and q_type.lower() not in (material.material_type or "").lower():
             material_matches = False
 
         # Description filter
-        if q_desc and q_desc.lower() not in (material.description or "").lower():
+        if q_desc and q_desc.strip() and q_desc.lower() not in (material.description or "").lower():
             material_matches = False
 
         # Lifecycle filter
-        if q_lifecycle and q_lifecycle.lower() not in (material.lifecycle or "").lower():
+        if q_lifecycle and q_lifecycle.strip() and q_lifecycle.lower() not in (material.lifecycle or "").lower():
             material_matches = False
 
         # Zone filter: check of er minstens één item in deze zone hoort
-        if q_zone:
+        if q_zone and q_zone.strip():
             has_matching_zone = any(
                 z.zone_name.lower().find(q_zone.lower()) != -1
                 for z in Zone.query.join(Item).filter(Item.material_id == material.material_id).all()
@@ -302,20 +301,26 @@ def inventory():
     is_manual_flow = (active_brand or active_material_id) and not is_search
 
     # For You: show only when manual brand selected AND no material_id (so brand clicked, not type)
+    # AND no filters are active
     show_for_you = False
-    if is_manual_flow and active_brand and not active_material_id:
-        # Only show "For You" in this exact case (manual brand click + no type chosen)
+    if is_manual_flow and active_brand and not active_material_id and not is_search:
+        # Only show "For You" in this exact case (manual brand click + no type chosen + no filters)
         show_for_you = True
     if not active_brand and not is_search:
         show_for_you = True
 
     # Show items:
     # - if search flow: always show items (search may be single-field, e.g. only q_brand)
-    # - or if manual flow and a specific material_id was clicked
+    # - or if a specific material_id was clicked (always show items for that material)
+    # - or if brand is selected AND filters are active (combine brand + filters)
     show_items = False
     if is_search:
         show_items = True
-    elif is_manual_flow and active_material_id:
+    elif active_material_id:
+        # Always show items when a material type is selected
+        show_items = True
+    elif active_brand and is_search:
+        # Brand clicked with filters active - show items matching both
         show_items = True
     else:
         show_items = False
@@ -363,12 +368,22 @@ def inventory():
             .filter(Material.company_name == company_name)
         )
 
-        # Manual material selected -> restrict to that material
-        if active_material_id and not is_search:
+        # Manual material selected -> restrict to that material first, then apply filters
+        if active_material_id:
             query = query.filter(Item.material_id == active_material_id)
+            # Apply additional filters on top of the material selection
+            if q_zone:
+                query = query.filter(Zone.zone_name.ilike(f"%{q_zone}%"))
+            if filter_purpose:
+                query = query.filter(Item.purpose == filter_purpose)
+            if filter_packaging:
+                query = query.filter(Item.packaging == filter_packaging)
         else:
             # SEARCH flow: apply any provided filters (partial, case-insensitive)
-            if q_brand:
+            # If active_brand is set (from sidebar click), use it instead of q_brand
+            if active_brand:
+                query = query.filter(Material.brand.ilike(f"%{active_brand}%"))
+            elif q_brand:
                 query = query.filter(Material.brand.ilike(f"%{q_brand}%"))
             if q_type:
                 query = query.filter(Material.material_type.ilike(f"%{q_type}%"))

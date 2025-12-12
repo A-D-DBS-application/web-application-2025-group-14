@@ -8,6 +8,14 @@
     {% for brand_block in brands %}
         <li class="brand-item">
             <form method="get" style="margin:0;">
+                {# Preserve active filters when clicking brands #}
+                {% if q_brand %}<input type="hidden" name="q_brand" value="{{ q_brand }}">{% endif %}
+                {% if q_type %}<input type="hidden" name="q_type" value="{{ q_type }}">{% endif %}
+                {% if q_desc %}<input type="hidden" name="q_desc" value="{{ q_desc }}">{% endif %}
+                {% if q_zone %}<input type="hidden" name="q_zone" value="{{ q_zone }}">{% endif %}
+                {% if q_lifecycle %}<input type="hidden" name="q_lifecycle" value="{{ q_lifecycle }}">{% endif %}
+                {% if filter_purpose %}<input type="hidden" name="filter_purpose" value="{{ filter_purpose }}">{% endif %}
+                {% if filter_packaging %}<input type="hidden" name="filter_packaging" value="{{ filter_packaging }}">{% endif %}
                 {# Togglen: als deze brand al actief is → brand verwijderen #}
                 {% if brand_block.name|lower == active_brand|lower %}
                     {# geen hidden brand → je gaat terug naar "geen brand-filter" #}
@@ -31,6 +39,14 @@
                     {% for m in brand_block.materials %}
                         <li class="type-item">
                             <form method="get" style="margin:0;">
+                                {# Preserve active filters when clicking materials #}
+                                {% if q_brand %}<input type="hidden" name="q_brand" value="{{ q_brand }}">{% endif %}
+                                {% if q_type %}<input type="hidden" name="q_type" value="{{ q_type }}">{% endif %}
+                                {% if q_desc %}<input type="hidden" name="q_desc" value="{{ q_desc }}">{% endif %}
+                                {% if q_zone %}<input type="hidden" name="q_zone" value="{{ q_zone }}">{% endif %}
+                                {% if q_lifecycle %}<input type="hidden" name="q_lifecycle" value="{{ q_lifecycle }}">{% endif %}
+                                {% if filter_purpose %}<input type="hidden" name="filter_purpose" value="{{ filter_purpose }}">{% endif %}
+                                {% if filter_packaging %}<input type="hidden" name="filter_packaging" value="{{ filter_packaging }}">{% endif %}
                                 <input type="hidden" name="brand" value="{{ brand_block.name }}">
                                 <input type="hidden" name="material_id" value="{{ m.id }}">
                                 <button type="submit"
