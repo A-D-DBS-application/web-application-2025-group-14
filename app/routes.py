@@ -567,6 +567,26 @@ def inventory():
 # ---------------------------------------------------------------------------
 # ADD INVENTORY ITEM (material + zone + item)
 # ---------------------------------------------------------------------------
+@main.route("/brand_suggest")
+def brand_suggest():
+    q = (request.args.get("q") or "").strip()
+    company_name = session.get("company_name")
+
+    if not q:
+        return {"suggestions": []}
+
+    # Zoek alle merken die het typed stukje bevatten (case insensitive)
+    results = (
+        db.session.query(Material.brand)
+        .filter(Material.company_name == company_name)
+        .filter(Material.brand.ilike(f"%{q}%"))
+        .distinct()
+        .limit(5)
+        .all()
+    )
+
+    return {"suggestions": [r[0] for r in results]}
+
 @main.route("/add_item", methods=["GET", "POST"])
 def add_item():
     if request.method == "POST":
