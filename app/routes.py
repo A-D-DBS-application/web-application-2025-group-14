@@ -195,12 +195,12 @@ def inventory():
     material_stats = (
         db.session.query(
             Material,
-            func.count(Item.item_id).label("item_count"),
+            func.coalesce(func.sum(Item.quantity), 0).label("total_quantity"), #coalesce om None te vermijden
         )
         .join(Item)
         .filter(Material.company_name == company_name)
         .group_by(Material.material_id)
-        .having(func.count(Item.item_id) > 0)
+        .having(func.sum(Item.quantity) > 0)
         .order_by(Material.brand, Material.material_type)
         .all()
     )
@@ -209,7 +209,7 @@ def inventory():
     brands_dict = {}
     brands = []
 
-    for material, item_count in material_stats:
+    for material, total_quantity in material_stats:
         brand_name = material.brand
 
         # Case-insensitive active_brand bepalen
@@ -272,12 +272,13 @@ def inventory():
 
         # Voeg enkel materials toe die matchen
         if material_matches:
-            brands_dict[brand_name]["material_count"] += item_count
+            brands_dict[brand_name]["material_count"] += total_quantity
             brands_dict[brand_name]["materials"].append({
                 "id": material.material_id,
                 "type": material.material_type,
                 "description": material.description,
-                "item_count": item_count,
+                "item_count": total_quantity,
+
             })
 
     # Zet brands altijd (ook als er geen match is)

@@ -1497,3 +1497,18 @@ body {
     font-weight: 600;
 }
 
+.reservation-search {
+    width: 100%;
+    max-width: 320px;
+    padding: 8px 12px;
+    margin: 10px 0 15px;
+    border-radius: 8px;
+    border: 1px solid #ddd;
+    font-size: 14px;
+}
+.panel-content {
+    padding-bottom: 80px; /* extra ruimte voor laatste rij */
+}
+.reservations-table {
+    margin-bottom: 60px;
+}
