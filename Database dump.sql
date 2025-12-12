@@ -4,8 +4,8 @@
 
 INSERT INTO company (company_name) VALUES ('Primetals');
 
-INSERT INTO app_user (username, password, company_name)
-VALUES ('Frédéric De Haes', 'wachtwoord', 'Primetals');
+INSERT INTO app_user (username, company_name)
+VALUES ('frederic.de_haes@primetals.com', 'Primetals');
 
 INSERT INTO material (
     material_id,
@@ -214,18 +214,18 @@ INSERT INTO reservation (
     quantity,
     project
 ) VALUES
-(1, 3,  'Frédéric De Haes', '2025-01-10 09:15:00', 5,  'Project ALPHA'),
-(2, 7,  'Frédéric De Haes', '2025-01-12 14:22:00', 2,  'Testlijn uitbreiding'),
-(3, 14, 'Frédéric De Haes', '2025-01-15 08:05:00', 4,  'Onderhoud cel 2'),
-(4, 19, 'Frédéric De Haes', '2025-01-16 11:47:00', 10, 'Upgrade PLC-kast'),
-(5, 1,  'Frédéric De Haes', '2025-01-18 16:33:00', 3,  'Proefopstelling X'),
-(6, 22, 'Frédéric De Haes', '2025-01-19 10:00:00', 6,  'Demo voor klant'),
-(7, 9,  'Frédéric De Haes', '2025-01-20 13:12:00', 1,  'Kleine herstelling'),
-(8, 24, 'Frédéric De Haes', '2025-01-21 09:00:00', 2,  'Eindcontrole lijn 4');
+(1, 3,  'frederic.de_haes@primetals.com', '2025-01-10 09:15:00', 5,  'Project ALPHA'),
+(2, 7,  'frederic.de_haes@primetals.com', '2025-01-12 14:22:00', 2,  'Testlijn uitbreiding'),
+(3, 14, 'frederic.de_haes@primetals.com', '2025-01-15 08:05:00', 4,  'Onderhoud cel 2'),
+(4, 19, 'frederic.de_haes@primetals.com', '2025-01-16 11:47:00', 10, 'Upgrade PLC-kast'),
+(5, 1,  'frederic.de_haes@primetals.com', '2025-01-18 16:33:00', 3,  'Proefopstelling X'),
+(6, 22, 'frederic.de_haes@primetals.com', '2025-01-19 10:00:00', 6,  'Demo voor klant'),
+(7, 9,  'frederic.de_haes@primetals.com', '2025-01-20 13:12:00', 1,  'Kleine herstelling'),
+(8, 24, 'frederic.de_haes@primetals.com', '2025-01-21 09:00:00', 2,  'Eindcontrole lijn 4');
 
 
-INSERT INTO app_user (username, password, company_name) VALUES
-('Medewerker',   'wachtwoord', 'Primetals');
+INSERT INTO app_user (username, company_name) VALUES
+('Medewerker', 'Primetals');
 
 INSERT INTO reservation (reservation_id, item_id, username, date, quantity, project) VALUES
 (9, 1,  'Medewerker', '2025-02-10 09:00:00', 2, 'Magazijn inventaris'),
@@ -245,9 +245,9 @@ INSERT INTO reservation (reservation_id, item_id, username, date, quantity, proj
 
 INSERT INTO company (company_name) VALUES ('UGent');
 
-INSERT INTO app_user (username, password, company_name) VALUES
-('Groep 14',     'wachtwoord', 'UGent'),
-('Test Student', 'wachtwoord', 'UGent');
+INSERT INTO app_user (username, company_name) VALUES
+('Groep 14', 'UGent'),
+('Test Student', 'UGent');
 
 INSERT INTO material (
     material_id,

@@ -6,7 +6,6 @@ from sqlalchemy.orm import joinedload
 
 from .models import db, Material, Zone, Item, Reservation, User, Company, MaterialEvent
 from flask import session
-from werkzeug.security import generate_password_hash, check_password_hash
 from urllib.parse import urlparse
 
 
@@ -78,13 +77,12 @@ def login():
 
     if request.method == "POST":
         username = request.form.get("username")
-        password = request.form.get("password")
 
         # gebruiker opzoeken
         user = User.query.filter_by(username=username).first()
 
         # user bestaat niet of wachtwoord fout (plain text vergelijking)
-        if not user or user.password != password:
+        if not user:
             return render_template("login.html", error="Invalid login")
 
         # alles ok → sessie vullen
@@ -519,15 +517,9 @@ def inventory():
     if (not is_search and active_material_id) or active_material:
         manual_items_view = True
     
-    search_brand_type = False
-    if is_search and q_brand and (q_type or q_desc):
-        search_brand_type = True
-
-    # search variants for item-card decisions
-    search_brand_only = is_search and q_brand and not (q_type or q_desc)
-    search_type_only = is_search and (q_type or q_desc) and not q_brand
-    search_misc_filters_only = is_search and not (q_brand or q_type or q_desc) and any([q_zone, q_lifecycle, filter_purpose, filter_packaging])
-
+    search_brand = False
+    if is_search and q_brand:
+        search_brand = True
     
 
     return render_template(
@@ -555,10 +547,8 @@ def inventory():
         show_for_you=show_for_you,
         is_search=is_search,
         manual_items_view=manual_items_view,
-        search_brand_type =search_brand_type,
-        search_brand_only=search_brand_only,
-        search_type_only=search_type_only,
-        search_misc_filters_only=search_misc_filters_only,
+        search_brand =search_brand,
+
         page_title=page_title,
         recently_changed_items=recently_changed_items,
     )

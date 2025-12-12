@@ -192,53 +192,34 @@
                 {# --- Header variations depending on context --- #}
 
                 {% if manual_items_view %}
-                    {# Manual material view (or brand+type search)#}
+                    {# Manual material view (zodat niet in else:)#}
                     <h3 class="item-title">
-                        {{ item.material.brand }} — {{ item.material.material_type }}
                     </h3>
                 
-                {% elif search_brand_type %}
-                    {# brand+type search #}
+                {% elif search_brand %}
+                    {# brand search (want Brand open)#}
                     <h3 class="item-title">
                         {{ item.material.material_type }}
-                    </h3>
-
-                {% elif is_search and search_brand_only %}
-                    {# Search by BRAND only: title shows brand; on cards show TYPE as primary info #}
-                    <h3 class="item-title">
-                        {{ item.material.material_type }}
-                    </h3>
-
-                {% elif is_search and search_type_only %}
-                    {# Search by TYPE/DESC only: title shows type; on cards show BRAND as primary info #}
-                    <h3 class="item-title">
-                        {{ item.material.brand }} — {{ item.material.material_type }}
-                    </h3>
-
-                {% elif is_search and search_misc_filters_only %}
-                    {# Search by zone/lifecycle/purpose/packaging only: title Inventory;
-                    show Brand - Type on cards #}
-                    <h3 class="item-title">
-                        {{ item.material.brand }} — {{ item.material.material_type }}
                     </h3>
 
                 {% else %}
-                    {# Default fallback: show Brand — Type #}
                     <h3 class="item-title">
                         {{ item.material.brand }} — {{ item.material.material_type }}
                     </h3>
+                    <div class="item-subtitle-row">
+                        <p class="item-subtitle">
+                            {{ item.material.description }}
+                        </p>
+                    </div>
+
                 {% endif %}
 
-                <div class="item-subtitle-row">
-                    <p class="item-subtitle">
-                        {{ item.material.description }}
-                    </p>
+
                     {% if item.item_id in recently_changed_items %}
                     <span class="chip chip-changed" title="Recently changed">
                         Changed
                     </span>
                     {% endif %}
-                </div>
 
                 {# --- The standard meta row (always present) --- #}
                 <div class="item-meta-row item-meta-spacing">
