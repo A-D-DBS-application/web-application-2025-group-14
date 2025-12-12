@@ -417,45 +417,67 @@
 {# ---------- RESERVATIONS PANEL (winkelmandje) ---------- #}
 <aside class="side-panel side-panel-wide" id="reservations-panel">
     <div class="panel-backdrop" data-panel-close></div>
+
     <div class="panel-content">
         <header class="panel-header">
             <h2>Reservations</h2>
+
+            <input
+                type="search"
+                id="reservation-search"
+                placeholder="Search reservations..."
+                class="reservation-search"
+            />
+
             <button type="button" class="panel-close" data-panel-close>×</button>
         </header>
 
         {% if reservations_list %}
             <table class="reservations-table">
                 <thead>
-                <tr>
-                    <th>Item</th>
-                    <th>Project</th>
-                    <th>Date</th>
-                    <th>Qty</th>
-                    <th></th>
-                </tr>
-                </thead>
-                <tbody>
-                {% for r in reservations_list %}
                     <tr>
-                        <td>
-                            <strong>{{ r.brand }} – {{ r.type }}</strong><br>
-                            Zone {{ r.zone }}
-                        </td>
-                        <td>{{ r.project or '-' }}</td>
-                        <td>{{ r.date.strftime("%Y-%m-%d") }}</td>
-                        <td>{{ r.quantity }}</td>
-                        <td>
-<!-- Keuze A: Link naar de nieuwe, gedetailleerde return-pagina -->
-                            <a href="{{ url_for('main.return_item', reservation_id=r.reservation_id) }}"
-                                class="icon-btn return-btn"
-                                data-reservation-id="{{ r.reservation_id }}"
-                                title="Process reservation">
-                                <span class="material-icons">assignment_return</span>
-                            </a>
-
-                        </td>
+                        <th>Item</th>
+                        <th>User</th>
+                        <th>Project</th>
+                        <th>Date</th>
+                        <th>Qty</th>
+                        <th></th>
                     </tr>
-                {% endfor %}
+                </thead>
+
+                <tbody>
+                    {% for r in reservations_list %}
+                        <tr>
+                            <td>
+                                <strong>{{ r.brand }} – {{ r.type }}</strong><br>
+                                <span class="muted">Zone {{ r.zone }}</span>
+                            </td>
+
+                            <td>
+                                {{ r.username or '-' }}
+                            </td>
+
+                            <td>
+                                {{ r.project or '-' }}
+                            </td>
+
+                            <td>
+                                {{ r.date.strftime("%Y-%m-%d") }}
+                            </td>
+
+                            <td>
+                                {{ r.quantity }}
+                            </td>
+
+                            <td class="actions">
+                                <a href="{{ url_for('main.return_item', reservation_id=r.reservation_id) }}"
+                                   class="icon-btn return-btn"
+                                   title="Process reservation">
+                                    <span class="material-icons">assignment_return</span>
+                                </a>
+                            </td>
+                        </tr>
+                    {% endfor %}
                 </tbody>
             </table>
         {% else %}
@@ -463,6 +485,7 @@
         {% endif %}
     </div>
 </aside>
+
 <!-- UNIVERSAL RETURN MODAL (middle layout) -->
 <div id="returnModal" class="return-modal">
     <div class="return-backdrop" onclick="closeReturnModal()"></div>
@@ -567,6 +590,24 @@ function closeReturnModal() {
     modal.classList.remove("is-open");
     modal.style.display = "none";
 }
+</script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const searchInput = document.getElementById("reservation-search");
+    const rows = document.querySelectorAll(".reservations-table tbody tr");
+
+    if (!searchInput) return;
+
+    searchInput.addEventListener("input", function () {
+        const value = this.value.toLowerCase();
+
+        rows.forEach(row => {
+            row.style.display = row.innerText.toLowerCase().includes(value)
+                ? ""
+                : "none";
+        });
+    });
+});
 </script>
 
 
