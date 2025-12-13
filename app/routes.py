@@ -690,8 +690,13 @@ def add_item():
         db.session.add(item)
         db.session.commit()
 
+        flash("Item added successfully", "success")
         return redirect(url_for("main.inventory", material_id=material.material_id))
 
+    # Check if this is an AJAX request (for modal)
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return render_template("add_item_partial.html")
+    
     return render_template("add_item.html")
 
 # USE / RESERVE ITEM

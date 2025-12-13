@@ -40,7 +40,7 @@
 <div style="display: inline-flex; align-items: center; gap: 8px; margin-left: 8px;">
     <form method="post" 
           action="{{ url_for('main.delete_material', material_id=material.material_id) }}"
-          onsubmit="return confirm('Are you sure you want to delete this material and all its items?');"
+          onsubmit="return confirmDeleteMaterial(event);"
           style="margin: 0; display: inline;">
         <button type="submit" 
                 class="reservation-delete-btn"
@@ -49,6 +49,16 @@
             <span class="material-icons" style="font-size: 20px;">delete</span>
         </button>
     </form>
+    
+    <script>
+    function confirmDeleteMaterial(event) {
+        if (!confirm('Are you sure you want to delete this material and all its items? This action cannot be undone.')) {
+            event.preventDefault();
+            return false;
+        }
+        return true;
+    }
+    </script>
 </div>
 <style>
 .reservation-delete-btn:hover {
