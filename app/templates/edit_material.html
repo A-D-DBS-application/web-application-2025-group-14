@@ -30,10 +30,73 @@
                value="{{ material.price if material.price is not none }}">
     </label>
 
-    <div class="filter-actions">
+    <div class="filter-actions" style="display: flex; align-items: center; gap: 8px;">
         <button type="submit" class="btn-primary">Save</button>
         <a href="{{ url_for('main.inventory', brand=material.brand, material_id=material.material_id) }}"
            class="btn-secondary">Cancel</a>
     </div>
 </form>
+
+<div style="display: inline-flex; align-items: center; gap: 8px; margin-left: 8px;">
+    <form method="post" 
+          action="{{ url_for('main.delete_material', material_id=material.material_id) }}"
+          onsubmit="return confirm('Are you sure you want to delete this material and all its items?');"
+          style="margin: 0; display: inline;">
+        <button type="submit" 
+                class="reservation-delete-btn"
+                title="Delete material"
+                style="border: 1px solid #d1d5db; background: #ffffff; cursor: pointer; font-size: 20px; padding: 6px 8px; border-radius: 6px; color: #6b7280; transition: all 0.2s; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px;">
+            <span class="material-icons" style="font-size: 20px;">delete</span>
+        </button>
+    </form>
+</div>
+<style>
+.reservation-delete-btn:hover {
+    background: #f3f4f6 !important;
+    border-color: #9ca3af !important;
+    color: #374151 !important;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.querySelector('.filter-form');
+    if (!form) return;
+    
+    // Set custom English validation messages for all required fields
+    const requiredFields = form.querySelectorAll('input[required], textarea[required]');
+    
+    requiredFields.forEach(function(field) {
+        // Set custom message
+        field.addEventListener('invalid', function(e) {
+            e.preventDefault();
+            if (this.validity.valueMissing) {
+                this.setCustomValidity('Please fill in this field.');
+            } else {
+                this.setCustomValidity('');
+            }
+            // Show the validation message
+            this.reportValidity();
+        });
+        
+        // Clear custom message when user starts typing
+        field.addEventListener('input', function() {
+            this.setCustomValidity('');
+        });
+    });
+    
+    // Handle form submission
+    form.addEventListener('submit', function(e) {
+        if (!form.checkValidity()) {
+            e.preventDefault();
+            // Find first invalid field and show its message
+            const firstInvalid = form.querySelector(':invalid');
+            if (firstInvalid) {
+                firstInvalid.focus();
+                firstInvalid.reportValidity();
+            }
+        }
+    });
+});
+</script>
 {% endblock %}

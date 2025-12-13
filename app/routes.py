@@ -198,7 +198,7 @@ def inventory():
         .join(Item)
         .filter(Material.company_name == company_name)
         .group_by(Material.material_id)
-        .having(func.sum(Item.quantity) > 0)
+        .having(func.count(Item.item_id) > 0)  # Include materials with items, even if quantity is 0
         .order_by(Material.brand, Material.material_type)
         .all()
     )
@@ -270,14 +270,41 @@ def inventory():
 
         # Voeg enkel materials toe die matchen
         if material_matches:
-            brands_dict[brand_name]["material_count"] += total_quantity
-            brands_dict[brand_name]["materials"].append({
-                "id": material.material_id,
-                "type": material.material_type,
-                "description": material.description,
-                "item_count": total_quantity,
-
-            })
+            # If item-level filters are active, calculate filtered quantity
+            has_item_filters = filter_purpose or filter_packaging or (q_zone and q_zone.strip())
+            
+            if has_item_filters:
+                # Get the sum of quantities for filtered items
+                filtered_quantity = db.session.query(func.coalesce(func.sum(Item.quantity), 0)).filter(
+                    Item.material_id == material.material_id
+                )
+                if filter_purpose:
+                    filtered_quantity = filtered_quantity.filter(Item.purpose == filter_purpose)
+                if filter_packaging:
+                    filtered_quantity = filtered_quantity.filter(Item.packaging == filter_packaging)
+                if q_zone and q_zone.strip():
+                    filtered_quantity = filtered_quantity.join(Zone).filter(Zone.zone_name.ilike(f"%{q_zone}%"))
+                
+                filtered_count = filtered_quantity.scalar() or 0
+                
+                # Only add if there are actually items matching the filters
+                if filtered_count > 0:
+                    brands_dict[brand_name]["material_count"] += filtered_count
+                    brands_dict[brand_name]["materials"].append({
+                        "id": material.material_id,
+                        "type": material.material_type,
+                        "description": material.description,
+                        "item_count": filtered_count,
+                    })
+            else:
+                # No item-level filters, use total quantity
+                brands_dict[brand_name]["material_count"] += total_quantity
+                brands_dict[brand_name]["materials"].append({
+                    "id": material.material_id,
+                    "type": material.material_type,
+                    "description": material.description,
+                    "item_count": total_quantity,
+                })
 
     # Zet brands altijd (ook als er geen match is)
     brands = list(brands_dict.values())
@@ -287,6 +314,13 @@ def inventory():
         b for b in brands_dict.values()
         if b.get("material_count", 0) > 0
     ]
+    
+    # If brand filter is active, only show that brand in sidebar
+    if q_brand and q_brand.strip():
+        brands = [
+            b for b in brands
+            if b.get("name", "").lower() == q_brand.lower()
+        ]
 
     # Zodat geen bugs indien brand niet bestaat
     if is_search and q_brand:
@@ -367,35 +401,32 @@ def inventory():
             .filter(Material.company_name == company_name)
         )
 
-        # Manual material selected -> restrict to that material first, then apply filters
+        # If material is selected, filter by it first, then apply all other filters
         if active_material_id:
             query = query.filter(Item.material_id == active_material_id)
-            # Apply additional filters on top of the material selection
-            if q_zone:
-                query = query.filter(Zone.zone_name.ilike(f"%{q_zone}%"))
-            if filter_purpose:
-                query = query.filter(Item.purpose == filter_purpose)
-            if filter_packaging:
-                query = query.filter(Item.packaging == filter_packaging)
-        else:
-            # SEARCH flow: apply any provided filters (partial, case-insensitive)
-            # If active_brand is set (from sidebar click), use it instead of q_brand
-            if active_brand:
-                query = query.filter(Material.brand.ilike(f"%{active_brand}%"))
-            elif q_brand:
-                query = query.filter(Material.brand.ilike(f"%{q_brand}%"))
-            if q_type:
-                query = query.filter(Material.material_type.ilike(f"%{q_type}%"))
-            if q_desc:
-                query = query.filter(Material.description.ilike(f"%{q_desc}%"))
-            if q_zone:
-                query = query.filter(Zone.zone_name.ilike(f"%{q_zone}%"))
-            if q_lifecycle:
-                query = query.filter(Material.lifecycle.ilike(f"%{q_lifecycle}%"))
-            if filter_purpose:
-                query = query.filter(Item.purpose == filter_purpose)
-            if filter_packaging:
-                query = query.filter(Item.packaging == filter_packaging)
+        
+        # Apply all filters (works for both material selection and general search)
+        # Brand filter: use active_brand if set (from sidebar), otherwise use q_brand
+        if active_brand and not active_material_id:
+            query = query.filter(Material.brand.ilike(f"%{active_brand}%"))
+        elif q_brand and q_brand.strip():
+            query = query.filter(Material.brand.ilike(f"%{q_brand}%"))
+        
+        # Other material filters
+        if q_type and q_type.strip():
+            query = query.filter(Material.material_type.ilike(f"%{q_type}%"))
+        if q_desc and q_desc.strip():
+            query = query.filter(Material.description.ilike(f"%{q_desc}%"))
+        if q_lifecycle and q_lifecycle.strip():
+            query = query.filter(Material.lifecycle.ilike(f"%{q_lifecycle}%"))
+        
+        # Item-level filters
+        if q_zone and q_zone.strip():
+            query = query.filter(Zone.zone_name.ilike(f"%{q_zone}%"))
+        if filter_purpose:
+            query = query.filter(Item.purpose == filter_purpose)
+        if filter_packaging:
+            query = query.filter(Item.packaging == filter_packaging)
 
         items = query.order_by(
             Material.brand,
@@ -759,6 +790,28 @@ def update_quantity(item_id: int):
     return redirect(url_for("main.inventory", brand=brand, material_id=material_id))
 
 
+# ---------------------------------------------------------------------------
+# DELETE ITEM
+# ---------------------------------------------------------------------------
+@main.route("/item/<int:item_id>/delete", methods=["POST"])
+def delete_item(item_id: int):
+    """Delete an item if it has no reservations."""
+    
+    item = Item.query.get_or_404(item_id)
+    material_id = item.material_id
+    material = Material.query.get(material_id)
+    
+    # Check if item has reservations
+    reserved_qty = sum(r.quantity for r in item.reservations)
+    if reserved_qty > 0:
+        flash(f"Cannot delete item: {reserved_qty} items are reserved.", "error")
+        return redirect(url_for("main.edit_material", material_id=material_id))
+    
+    db.session.delete(item)
+    db.session.commit()
+    flash("Item deleted successfully.", "success")
+    return redirect(url_for("main.edit_material", material_id=material_id))
+
 
 # ---------------------------------------------------------------------------
 # EDIT MATERIAL
@@ -788,6 +841,50 @@ def edit_material(material_id: int):
         )
 
     return render_template("edit_material.html", material=material)
+
+
+# ---------------------------------------------------------------------------
+# DELETE MATERIAL
+# ---------------------------------------------------------------------------
+@main.route("/material/<int:material_id>/delete", methods=["POST"])
+def delete_material(material_id: int):
+    """Delete a material and all its items from the database."""
+    
+    material = Material.query.get_or_404(material_id)
+    
+    # Check if any items have reservations
+    items = Item.query.filter_by(material_id=material_id).all()
+    has_reservations = any(
+        sum(r.quantity for r in item.reservations) > 0 
+        for item in items
+    )
+    
+    if has_reservations:
+        flash("Cannot delete material: some items have active reservations.", "error")
+        return redirect(url_for("main.edit_material", material_id=material_id))
+    
+    try:
+        # Delete all reservations for items of this material first
+        for item in items:
+            # Delete all reservations for this item
+            for reservation in item.reservations:
+                db.session.delete(reservation)
+            # Delete the item
+            db.session.delete(item)
+        
+        # Delete material events for this material
+        MaterialEvent.query.filter_by(material_id=material_id).delete()
+        
+        # Delete the material
+        db.session.delete(material)
+        db.session.commit()
+        
+        flash("Material and all its items deleted successfully.", "success")
+        return redirect(url_for("main.inventory"))
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Error deleting material: {str(e)}", "error")
+        return redirect(url_for("main.edit_material", material_id=material_id))
 
 
 # ---------------------------------------------------------------------------
@@ -859,17 +956,17 @@ def return_item(reservation_id):
             qty_discard = int(request.form.get("qty_discard") or 0)
             qty_changed = int(request.form.get("qty_mark_changed") or 0)
         except (ValueError, TypeError):
-            flash("Ongeldige hoeveelheid ingevoerd.", "error")
+            flash("Invalid quantity entered.", "error")
             return redirect(url_for(".return_item", reservation_id=reservation_id))
 
         # Validatie
         total_qty_processed = qty_stock + qty_discard + qty_changed
         if total_qty_processed <= 0:
-            flash("Geef een hoeveelheid op voor minstens één actie.", "error")
+            flash("Specify a quantity for at least one action.", "error")
             return redirect(url_for(".return_item", reservation_id=reservation_id))
 
         if total_qty_processed > reservation.quantity:
-            flash(f"Totale hoeveelheid ({total_qty_processed}) is meer dan gereserveerd ({reservation.quantity}).", "error")
+            flash(f"Total quantity ({total_qty_processed}) is more than reserved ({reservation.quantity}).", "error")
             return redirect(url_for(".return_item", reservation_id=reservation_id))
 
         # --- Verwerk actie: Terug naar stock ---

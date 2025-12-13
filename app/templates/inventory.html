@@ -472,6 +472,7 @@
                             <td class="actions">
                                 <a href="{{ url_for('main.return_item', reservation_id=r.reservation_id) }}"
                                    class="icon-btn return-btn"
+                                   data-reservation-id="{{ r.reservation_id }}"
                                    title="Process reservation">
                                     <span class="material-icons">assignment_return</span>
                                 </a>
