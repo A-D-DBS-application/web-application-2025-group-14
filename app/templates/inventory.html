@@ -335,7 +335,13 @@
                             </tbody>
                         </table>
                     {% else %}
-                        <p>No reservations for this item.</p>
+                        <div class="empty-state" style="padding: 40px 20px;">
+                            <div class="empty-state-icon" style="font-size: 48px;">
+                                <span class="material-icons">event_busy</span>
+                            </div>
+                            <div class="empty-state-title" style="font-size: 16px;">No reservations</div>
+                            <div class="empty-state-message" style="font-size: 13px;">This item has no active reservations</div>
+                        </div>
                     {% endif %}
                 </div>
             </div>
@@ -482,7 +488,13 @@
                 </tbody>
             </table>
         {% else %}
-            <p class="muted">You have no reservations.</p>
+            <div class="empty-state">
+                <div class="empty-state-icon">
+                    <span class="material-icons">shopping_cart</span>
+                </div>
+                <div class="empty-state-title">No reservations</div>
+                <div class="empty-state-message">Your shopping cart is empty</div>
+            </div>
         {% endif %}
     </div>
 </aside>
@@ -502,6 +514,21 @@
         </div>
     </div>
 </div>
+
+<!-- ADD ITEM MODAL -->
+<div id="addItemModal" class="return-modal">
+    <div class="return-backdrop" onclick="closeAddItemModal()"></div>
+    <div class="return-dialog" style="max-width: 700px; max-height: 90vh;">
+        <div class="modal-header">
+            <h2>Add Inventory Item</h2>
+            <button class="modal-close" onclick="closeAddItemModal()">×</button>
+        </div>
+        <div id="addItemModalContent" class="modal-body">
+            <!-- Content loaded via AJAX -->
+        </div>
+    </div>
+</div>
+
 <script>
 
 // Attach handlers for the return modal (runs after the partial is injected)
@@ -551,23 +578,69 @@ document.addEventListener("DOMContentLoaded", () => {
         btn.addEventListener("click", async (e) => {
             e.preventDefault();
             const reservationId = btn.dataset.reservationId;
-
-            const response = await fetch(`/reservation/${reservationId}/return`, {
-                headers: { "X-Requested-With": "XMLHttpRequest" }
-            });
-
-            const html = await response.text();
-
-            const container = document.getElementById("returnModalContent");
-            container.innerHTML = html;
-            initReturnModalContent();
             const modal = document.getElementById("returnModal");
+            const container = document.getElementById("returnModalContent");
+            
+            if (!modal || !container) return;
+            
+            // Show loading state
+            container.innerHTML = '<div class="modal-loading"><div class="loading-spinner"></div><span>Loading...</span></div>';
             modal.classList.add("is-open");
             modal.style.display = "flex";
+            
+            try {
+                const response = await fetch(`/reservation/${reservationId}/return`, {
+                    headers: { "X-Requested-With": "XMLHttpRequest" }
+                });
+                const html = await response.text();
+                container.innerHTML = html;
+                initReturnModalContent();
+            } catch (error) {
+                console.error("Error loading return form:", error);
+                container.innerHTML = '<div class="modal-loading" style="color: #dc2626;"><span>Error loading form. Please try again.</span></div>';
+            }
         });
     });
 
+    // Add item button handler
+    document.querySelectorAll('[data-modal-target="addItemModal"]').forEach(btn => {
+        btn.addEventListener("click", async (e) => {
+            e.preventDefault();
+            const modal = document.getElementById("addItemModal");
+            const container = document.getElementById("addItemModalContent");
+            
+            if (!modal || !container) return;
+            
+            // Show loading state
+            container.innerHTML = '<div class="modal-loading"><div class="loading-spinner"></div><span>Loading...</span></div>';
+            modal.classList.add("is-open");
+            modal.style.display = "flex";
+            
+            try {
+                const response = await fetch("{{ url_for('main.add_item') }}", {
+                    headers: { "X-Requested-With": "XMLHttpRequest" }
+                });
+                const html = await response.text();
+                container.innerHTML = html;
+            } catch (error) {
+                console.error("Error loading add item form:", error);
+                container.innerHTML = '<div class="modal-loading" style="color: #dc2626;"><span>Error loading form. Please try again.</span></div>';
+            }
+        });
+    });
+    
+    // Handle form submission in modal - let it submit normally
+    // The form will redirect on success, which is handled by the browser
+
 });
+
+function closeAddItemModal() {
+    const modal = document.getElementById("addItemModal");
+    if (modal) {
+        modal.classList.remove("is-open");
+        modal.style.display = "none";
+    }
+}
 
 </script>
 <script>
