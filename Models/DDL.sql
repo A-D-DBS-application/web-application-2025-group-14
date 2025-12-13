@@ -1,3 +1,5 @@
+#Zoveel mogelijk aangesloten aan cursus Databasesystemen
+
 CREATE TABLE company (
   company_name text NOT NULL PRIMARY KEY
 );
@@ -6,7 +8,7 @@ CREATE TABLE app_user (
   username text NOT NULL PRIMARY KEY,
   company_name text NOT NULL,
   FOREIGN KEY (company_name) REFERENCES company (company_name)
-    ON DELETE CASCADE ON UPDATE CASCADE
+    ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
 CREATE TABLE material (
@@ -18,9 +20,9 @@ CREATE TABLE material (
   price numeric,
   company_name  text NOT NULL,
   CONSTRAINT UC1 UNIQUE(company_name, material_type, brand),
-  CONSTRAINT CC1 CHECK(price >= 0 OR price IS NULL),
+  CONSTRAINT CC1 CHECK(price >= 0),
   FOREIGN KEY (company_name) REFERENCES company (company_name)
-    ON DELETE CASCADE ON UPDATE CASCADE
+    ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
 CREATE TABLE zone (
@@ -29,7 +31,7 @@ CREATE TABLE zone (
   company_name text NOT NULL,
   CONSTRAINT UC2 UNIQUE (company_name, zone_name),
   FOREIGN KEY (company_name) REFERENCES company (company_name)
-    ON DELETE CASCADE ON UPDATE CASCADE
+    ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
 CREATE TABLE item (
@@ -45,9 +47,9 @@ CREATE TABLE item (
   CONSTRAINT CC3 CHECK(packaging IN('open', 'closed', 'none')),
   CONSTRAINT CC4 CHECK(quantity >= 0),
   FOREIGN KEY (material_id) REFERENCES material (material_id)
-    ON DELETE CASCADE ON UPDATE CASCADE,
+    ON DELETE RESTRICT ON UPDATE CASCADE,
   FOREIGN KEY (zone_id) REFERENCES zone (zone_id)
-    ON DELETE CASCADE ON UPDATE CASCADE
+    ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
 CREATE TABLE reservation (
@@ -59,7 +61,7 @@ CREATE TABLE reservation (
   project text,
   CONSTRAINT CC5 CHECK(quantity > 0),
   FOREIGN KEY (item_id) REFERENCES item (item_id)
-    ON DELETE CASCADE ON UPDATE CASCADE,
+    ON DELETE RESTRICT ON UPDATE CASCADE,
   FOREIGN KEY (username) REFERENCES app_user (username)
     ON DELETE CASCADE ON UPDATE CASCADE
 );
@@ -71,7 +73,8 @@ CREATE TABLE material_event (
   event_type text NOT NULL,
   total_events int NOT NULL DEFAULT 0,
   date timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT CC3 CHECK(event_type IN('view', 'reserve')),
+  CONSTRAINT UC4 UNIQUE(username, material_id, event_type),
+  CONSTRAINT CC6 CHECK(event_type IN('view', 'reserve')),
   FOREIGN KEY (username) REFERENCES app_user (username)
     ON DELETE CASCADE ON UPDATE CASCADE,
   FOREIGN KEY (material_id) REFERENCES material (material_id)
