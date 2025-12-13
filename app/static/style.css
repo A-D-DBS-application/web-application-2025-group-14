@@ -694,9 +694,9 @@ body {
 
 .panel-content {
     position: absolute;
-    top: 0;
+    top: 64px;
     right: 0;
-    width: 560px;
+    width: 768px;
     max-width: 90vw;
     height: 100%;
     background: #ffffff;
@@ -804,7 +804,7 @@ body {
 
 #reservations-panel {
     position: fixed;
-    top: 56px;                 /* zwarte bovenbalk */
+    top: 64px;                 /* zwarte bovenbalk */
     right: 0;
     bottom: 0;
     width: 100%;               /* neemt volledige breedte in */

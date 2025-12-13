@@ -571,6 +571,124 @@ function initReturnModalContent() {
     updateTotal();
 }
 
+// Attach handlers for the add item modal (runs after the partial is injected)
+function initAddItemModalContent() {
+    // Add a style tag for the autofill class, if it doesn't exist
+    if (!document.querySelector('[data-autofill-style]')) {
+        const style = document.createElement('style');
+        style.setAttribute('data-autofill-style', 'true'); // marker to prevent duplicates
+        style.innerHTML = `.autofilled { background-color: #f2f2f2 !important; }`;
+        document.head.appendChild(style);
+    }
+
+    // --- GET ALL ELEMENTS ---
+    const brandInput = document.getElementById("brand");
+    const brandSuggestionsBox = document.getElementById("brand_suggestions");
+    const typeInput = document.getElementById('material_type');
+    const descInput = document.getElementById('description');
+    const priceInput = document.getElementById('price');
+    const lifecycleInput = document.getElementById('lifecycle');
+    const commentInput = document.getElementById('comment');
+    const zoneInput = document.getElementById('zone_name');
+    const purposeInput = document.getElementById('purpose');
+    const packagingInput = document.getElementById('packaging');
+
+    // Check if the form elements are present
+    if (!brandInput || !typeInput) {
+        return;
+    }
+
+    // --- BRAND SUGGESTIONS ---
+    brandInput.addEventListener("input", function () {
+        const q = this.value.trim();
+
+        if (q.length === 0) {
+            brandSuggestionsBox.innerHTML = "";
+            return;
+        }
+
+        fetch(`/brand_suggest?q=${encodeURIComponent(q)}`)
+            .then(r => r.json())
+            .then(data => {
+                if (!data.suggestions.length) {
+                    brandSuggestionsBox.innerHTML = "";
+                    return;
+                }
+
+                brandSuggestionsBox.innerHTML = data.suggestions
+                    .map(s => `<div class="suggestion" style="cursor:pointer; padding: 2px 0;">${s}</div>`)
+                    .join("");
+
+                brandSuggestionsBox.onclick = (event) => {
+                    const suggestion = event.target.closest('.suggestion');
+                    if (suggestion) {
+                        brandInput.value = suggestion.textContent;
+                        brandSuggestionsBox.innerHTML = "";
+                        brandInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                };
+            });
+    });
+
+    // --- AUTO-FILL LOGIC ---
+    const materialAutofillElements = [descInput, priceInput, lifecycleInput];
+    const itemAutofillElements = [commentInput];
+
+    function setAutofilled(element, value) {
+        if (element.value !== value) { element.value = value; }
+        element.classList.add('autofilled');
+        element.addEventListener('input', function onFirstInput() {
+            element.classList.remove('autofilled');
+            element.removeEventListener('input', onFirstInput);
+        }, { once: true });
+    }
+
+    function clearAutofilled(elements) {
+        elements.forEach(el => {
+            if (el.classList.contains('autofilled')) {
+                el.value = '';
+                el.classList.remove('autofilled');
+            }
+        });
+    }
+
+    async function fetchMaterialDetails() {
+        const brand = brandInput.value.trim();
+        const type = typeInput.value.trim();
+        if (!brand || !type) { clearAutofilled(materialAutofillElements); return; }
+        try {
+            const response = await fetch(`/material_details?brand=${encodeURIComponent(brand)}&type=${encodeURIComponent(type)}`);
+            if (!response.ok) { clearAutofilled(materialAutofillElements); return; }
+            const data = await response.json();
+            if (data && data.description) {
+                setAutofilled(descInput, data.description || '');
+                setAutofilled(priceInput, data.price || '');
+                setAutofilled(lifecycleInput, data.lifecycle || '');
+            } else { clearAutofilled(materialAutofillElements); }
+        } catch (error) { console.error('Error fetching material details:', error); clearAutofilled(materialAutofillElements); }
+    }
+
+    async function fetchItemDetails() {
+        const params = new URLSearchParams({ brand: brandInput.value.trim(), type: typeInput.value.trim(), zone: zoneInput.value.trim(), purpose: purposeInput.value, packaging: packagingInput.value });
+        if (!params.get('brand') || !params.get('type') || !params.get('zone') || !params.get('purpose') || !params.get('packaging')) { clearAutofilled(itemAutofillElements); return; }
+        try {
+            const response = await fetch(`/item_details?${params.toString()}`);
+            if (!response.ok) { clearAutofilled(itemAutofillElements); return; }
+            const data = await response.json();
+            if (data && data.comment) { setAutofilled(commentInput, data.comment); } else { clearAutofilled(itemAutofillElements); }
+        } catch (error) { console.error('Error fetching item details:', error); clearAutofilled(itemAutofillElements); }
+    }
+
+    // Add event listeners
+    brandInput.addEventListener('input', fetchMaterialDetails);
+    typeInput.addEventListener('input', fetchMaterialDetails);
+    brandInput.addEventListener('input', fetchItemDetails);
+    typeInput.addEventListener('input', fetchItemDetails);
+    zoneInput.addEventListener('input', fetchItemDetails);
+    purposeInput.addEventListener('change', fetchItemDetails);
+    packagingInput.addEventListener('change', fetchItemDetails);
+}
+
 // Wanneer men op het icoontje klikt
 document.addEventListener("DOMContentLoaded", () => {
 
@@ -622,6 +740,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 });
                 const html = await response.text();
                 container.innerHTML = html;
+                // Initialize scripts for the new content
+                initAddItemModalContent();
             } catch (error) {
                 console.error("Error loading add item form:", error);
                 container.innerHTML = '<div class="modal-loading" style="color: #dc2626;"><span>Error loading form. Please try again.</span></div>';
