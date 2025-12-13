@@ -1,8 +1,8 @@
 """FULL REBUILD: new models
 
-Revision ID: 2ffeb6c6ec03
+Revision ID: 7eb53a8fc380
 Revises: 
-Create Date: 2025-12-09 12:56:30.152963
+Create Date: 2025-12-13 17:08:38.362555
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '2ffeb6c6ec03'
+revision = '7eb53a8fc380'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -24,28 +24,28 @@ def upgrade():
     )
     op.create_table('app_user',
     sa.Column('username', sa.String(), nullable=False),
-    sa.Column('password', sa.String(), nullable=False),
     sa.Column('company_name', sa.String(), nullable=False),
-    sa.ForeignKeyConstraint(['company_name'], ['company.company_name'], onupdate='CASCADE', ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['company_name'], ['company.company_name'], onupdate='CASCADE', ondelete='RESTRICT'),
     sa.PrimaryKeyConstraint('username')
     )
     op.create_table('material',
     sa.Column('material_id', sa.Integer(), nullable=False),
     sa.Column('material_type', sa.String(), nullable=False),
-    sa.Column('description', sa.String(), nullable=False),
+    sa.Column('description', sa.Text(), nullable=False),
     sa.Column('brand', sa.String(), nullable=False),
-    sa.Column('price', sa.Float(), nullable=True),
+    sa.Column('price', sa.Numeric(precision=10, scale=2), nullable=True),
     sa.Column('lifecycle', sa.String(), nullable=True),
     sa.Column('company_name', sa.String(), nullable=False),
-    sa.ForeignKeyConstraint(['company_name'], ['company.company_name'], onupdate='CASCADE', ondelete='CASCADE'),
+    sa.CheckConstraint('price >= 0', name='CC1'),
+    sa.ForeignKeyConstraint(['company_name'], ['company.company_name'], onupdate='CASCADE', ondelete='RESTRICT'),
     sa.PrimaryKeyConstraint('material_id'),
-    sa.UniqueConstraint('company_name', 'material_type', 'description', name='UC1')
+    sa.UniqueConstraint('company_name', 'material_type', 'brand', name='UC1')
     )
     op.create_table('zone',
     sa.Column('zone_id', sa.Integer(), nullable=False),
-    sa.Column('zone_name', sa.String(length=3), nullable=False),
+    sa.Column('zone_name', sa.String(), nullable=False),
     sa.Column('company_name', sa.String(), nullable=False),
-    sa.ForeignKeyConstraint(['company_name'], ['company.company_name'], onupdate='CASCADE', ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['company_name'], ['company.company_name'], onupdate='CASCADE', ondelete='RESTRICT'),
     sa.PrimaryKeyConstraint('zone_id'),
     sa.UniqueConstraint('company_name', 'zone_name', name='UC2')
     )
@@ -56,9 +56,10 @@ def upgrade():
     sa.Column('purpose', sa.Enum('keep', 'sell', 'dispose', name='purpose_enum'), nullable=False),
     sa.Column('packaging', sa.Enum('open', 'closed', 'none', name='packaging_enum'), nullable=False),
     sa.Column('quantity', sa.Integer(), nullable=False),
-    sa.Column('comment', sa.String(), nullable=True),
-    sa.ForeignKeyConstraint(['material_id'], ['material.material_id'], onupdate='CASCADE', ondelete='CASCADE'),
-    sa.ForeignKeyConstraint(['zone_id'], ['zone.zone_id'], onupdate='CASCADE', ondelete='CASCADE'),
+    sa.Column('comment', sa.Text(), nullable=True),
+    sa.CheckConstraint('quantity >= 0', name='CC2'),
+    sa.ForeignKeyConstraint(['material_id'], ['material.material_id'], onupdate='CASCADE', ondelete='RESTRICT'),
+    sa.ForeignKeyConstraint(['zone_id'], ['zone.zone_id'], onupdate='CASCADE', ondelete='RESTRICT'),
     sa.PrimaryKeyConstraint('item_id'),
     sa.UniqueConstraint('material_id', 'zone_id', 'purpose', 'packaging', name='UC3')
     )
@@ -67,11 +68,12 @@ def upgrade():
     sa.Column('username', sa.String(), nullable=False),
     sa.Column('material_id', sa.Integer(), nullable=False),
     sa.Column('event_type', sa.Enum('view', 'reserve', name='material_event_type'), nullable=False),
-    sa.Column('total_events', sa.Integer(), server_default='0', nullable=False),
+    sa.Column('total_events', sa.Integer(), server_default=sa.text('0'), nullable=False),
     sa.Column('date', sa.DateTime(), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=False),
     sa.ForeignKeyConstraint(['material_id'], ['material.material_id'], onupdate='CASCADE', ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['username'], ['app_user.username'], onupdate='CASCADE', ondelete='CASCADE'),
-    sa.PrimaryKeyConstraint('id')
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('username', 'material_id', 'event_type', name='UC4')
     )
     op.create_table('reservation',
     sa.Column('reservation_id', sa.Integer(), nullable=False),
@@ -80,7 +82,8 @@ def upgrade():
     sa.Column('date', sa.DateTime(), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=False),
     sa.Column('quantity', sa.Integer(), nullable=False),
     sa.Column('project', sa.String(), nullable=True),
-    sa.ForeignKeyConstraint(['item_id'], ['item.item_id'], onupdate='CASCADE', ondelete='CASCADE'),
+    sa.CheckConstraint('quantity > 0', name='CC3'),
+    sa.ForeignKeyConstraint(['item_id'], ['item.item_id'], onupdate='CASCADE', ondelete='RESTRICT'),
     sa.ForeignKeyConstraint(['username'], ['app_user.username'], onupdate='CASCADE', ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('reservation_id')
     )
