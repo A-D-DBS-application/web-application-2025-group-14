@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 
-from flask import Blueprint, render_template, request, redirect, url_for, abort, flash
-from sqlalchemy import func, case
+from flask import Blueprint, jsonify, render_template, request, redirect, url_for, abort, flash
+from sqlalchemy import case, func
 from sqlalchemy.orm import joinedload
 
 from .models import db, Material, Zone, Item, Reservation, User, Company, MaterialEvent
@@ -608,6 +608,81 @@ def brand_suggest():
 
     return {"suggestions": [r[0] for r in results]}
 
+@main.route("/material_details")
+def material_details():
+    brand = request.args.get("brand")
+    m_type = request.args.get("type")
+    exclude_id = request.args.get("exclude_id", type=int)
+    company_name = session.get("company_name")
+
+    if not brand or not m_type or not company_name:
+        return jsonify({})
+
+    query = Material.query.filter_by(
+        company_name=company_name,
+        brand=brand,
+        material_type=m_type
+    )
+
+    if exclude_id:
+        query = query.filter(Material.material_id != exclude_id)
+
+    material = query.first()
+
+    if material:
+        return jsonify({
+            "description": material.description,
+            "lifecycle": material.lifecycle,
+            "price": str(material.price) if material.price is not None else ""
+        })
+    return jsonify({})
+
+@main.route("/item_details")
+def item_details():
+    """Fetch comment for an existing item configuration."""
+    brand = request.args.get("brand")
+    m_type = request.args.get("type")
+    zone_name = request.args.get("zone")
+    purpose = request.args.get("purpose")
+    packaging = request.args.get("packaging")
+    exclude_id = request.args.get("exclude_id", type=int)
+    company_name = session.get("company_name")
+
+    if not all([brand, m_type, zone_name, purpose, packaging, company_name]):
+        return jsonify({})
+
+    # Find material first
+    material = Material.query.filter_by(
+        company_name=company_name, brand=brand, material_type=m_type
+    ).first()
+    if not material:
+        return jsonify({})
+
+    # Find zone
+    zone = Zone.query.filter_by(
+        company_name=company_name, zone_name=zone_name
+    ).first()
+    if not zone:
+        return jsonify({})
+
+    # Find item
+    query = Item.query.filter_by(
+        material_id=material.material_id,
+        zone_id=zone.zone_id,
+        purpose=purpose,
+        packaging=packaging
+    )
+
+    if exclude_id:
+        query = query.filter(Item.item_id != exclude_id)
+
+    item = query.first()
+    
+    if item and item.comment:
+        return jsonify({"comment": item.comment})
+    
+    return jsonify({})
+
 @main.route("/add_item", methods=["GET", "POST"])
 def add_item():
     if request.method == "POST":
@@ -618,28 +693,46 @@ def add_item():
         material_type = request.form["material_type"].strip()
         description = request.form["description"].strip()
         lifecycle = request.form.get("lifecycle") or None
-
-        price_raw = request.form.get("price")
-        price = float(price_raw.replace(",", ".")) if price_raw else None
+        
+        try:
+            price_raw = request.form.get("price")
+            price = float(price_raw.replace(",", ".")) if price_raw else None
+            quantity = int(request.form["quantity"])
+        except (ValueError, TypeError):
+            flash("Invalid number format for price or quantity.", "error")
+            return render_template("add_item.html", form_data=request.form)
 
         # Material check
         material = Material.query.filter_by(
             company_name=company_name,
+            brand=brand,
             material_type=material_type,
-            description=description,
         ).first()
 
         if material is None:
-            material = Material(
-                company_name=company_name,
-                brand=brand,
-                material_type=material_type,
-                description=description,
-                lifecycle=lifecycle,
-                price=price,
-            )
-            db.session.add(material)
-            db.session.flush()
+            try:
+                if not description:
+                    flash("Description is required for a new material.", "error")
+                    return render_template("add_item.html", form_data=request.form)
+                material = Material(
+                    company_name=company_name, brand=brand, material_type=material_type,
+                    description=description, lifecycle=lifecycle, price=price,
+                )
+                db.session.add(material)
+                db.session.flush()
+            except ValueError as e:
+                flash(f"Error creating material: {e}", "error")
+                return render_template("add_item.html", form_data=request.form)
+        else:
+            # Material exists. Update its properties from the form if the user changed them.
+            try:
+                material.description = description
+                material.price = price
+                material.lifecycle = lifecycle
+            except ValueError as e:
+                db.session.rollback()
+                flash(f"Error updating material: {e}", "error")
+                return render_template("add_item.html", form_data=request.form)
 
         # --- Zone data ---
         zone_name = request.form["zone_name"].strip().upper()
@@ -654,7 +747,6 @@ def add_item():
             db.session.flush()
 
         # --- Item data ---
-        quantity = int(request.form["quantity"])
         purpose = request.form["purpose"]
         packaging = request.form["packaging"]
         comment = request.form.get("comment") or None
@@ -668,27 +760,30 @@ def add_item():
         ).first()
 
         if existing_item:
-            # ❗ Update quantity instead of creating duplicate
-            existing_item.quantity += quantity
-            if comment:
-                existing_item.comment = comment
-            
-            db.session.commit()
+            try:
+                # ❗ Update quantity instead of creating duplicate
+                existing_item.quantity += quantity
+                existing_item.comment = comment # Altijd updaten, ook naar None
+                db.session.commit()
+            except ValueError as e:
+                db.session.rollback()
+                flash(f"Error updating item: {e}", "error")
+                return render_template("add_item.html", form_data=request.form)
 
             return redirect(url_for("main.inventory", material_id=material.material_id))
 
         # If not duplicate → create new item
-        item = Item(
-            material_id=material.material_id,
-            zone_id=zone.zone_id,
-            purpose=purpose,
-            packaging=packaging,
-            quantity=quantity,
-            comment=comment,
-        )
-
-        db.session.add(item)
-        db.session.commit()
+        try:
+            item = Item(
+                material_id=material.material_id, zone_id=zone.zone_id, purpose=purpose,
+                packaging=packaging, quantity=quantity, comment=comment,
+            )
+            db.session.add(item)
+            db.session.commit()
+        except ValueError as e:
+            db.session.rollback()
+            flash(f"Error creating item: {e}", "error")
+            return render_template("add_item.html", form_data=request.form)
 
         return redirect(url_for("main.inventory", material_id=material.material_id))
 
@@ -707,8 +802,10 @@ def use_item(item_id: int):
     if request.method == "POST":
         username = request.form["username"].strip()
         project = request.form.get("project") or None
-        quantity = int(request.form["quantity"])
-
+        try:
+            quantity = int(request.form["quantity"])
+        except (ValueError, TypeError):
+            return render_template("use_item.html", item=item, available=available, error="Invalid quantity entered.")
         # --- User validation ---
         user_exists = User.query.filter_by(
             username=username,
@@ -733,13 +830,17 @@ def use_item(item_id: int):
             return render_template("use_item.html", item=item, available=available, error=error_msg)
 
         # --- Create reservation ---
-        reservation = Reservation(
-            item_id=item.item_id,
-            username=username,
-            quantity=quantity,
-            project=project,
-        )
-        db.session.add(reservation)
+        try:
+            reservation = Reservation(
+                item_id=item.item_id,
+                username=username,
+                quantity=quantity,
+                project=project,
+            )
+            db.session.add(reservation)
+        except ValueError as e:
+            db.session.rollback()
+            return render_template("use_item.html", item=item, available=available, error=str(e))
 
         # --- Reduce real stock directly ---
         item.quantity -= quantity
@@ -823,15 +924,89 @@ def edit_material(material_id: int):
     material = Material.query.get_or_404(material_id)
 
     if request.method == "POST":
-        material.brand = request.form["brand"]
-        material.material_type = request.form["material_type"]
-        material.description = request.form["description"]
-        material.lifecycle = request.form.get("lifecycle") or None
+        new_brand = request.form["brand"]
+        new_type = request.form["material_type"]
+        
+        existing_material = Material.query.filter(
+            Material.material_id != material_id,
+            Material.company_name == material.company_name,
+            Material.brand == new_brand,
+            Material.material_type == new_type
+        ).first()
 
-        price_raw = request.form.get("price")
-        material.price = float(price_raw) if price_raw else None
+        if existing_material:
+            # --- Merge this material into the existing one ---
+            try:
+                # Overwrite properties of the target material with data from the form
+                existing_material.description = request.form["description"]
+                existing_material.lifecycle = request.form.get("lifecycle") or None
+                price_raw = request.form.get("price")
+                price = float(price_raw.replace(",", ".")) if price_raw else None
+                existing_material.price = price
 
-        db.session.commit()
+                # Move items, merging where necessary
+                for item_to_move in list(material.items):
+                    conflicting_item = Item.query.filter_by(
+                        material_id=existing_material.material_id,
+                        zone_id=item_to_move.zone_id,
+                        purpose=item_to_move.purpose,
+                        packaging=item_to_move.packaging
+                    ).first()
+
+                    if conflicting_item:
+                        # Merge items: sum quantity, move reservations
+                        conflicting_item.quantity += item_to_move.quantity
+                        for res in list(item_to_move.reservations):
+                            res.item = conflicting_item # Re-parent reservation
+                        db.session.flush() # Persist reservation moves before deleting item
+                        db.session.delete(item_to_move)
+                    else:
+                        # Just move the item
+                        item_to_move.material = existing_material # Re-parent item
+                
+                # Move material events, merging where necessary
+                for event_to_move in list(material.material_events):
+                    conflicting_event = MaterialEvent.query.filter_by(
+                        username=event_to_move.username,
+                        material_id=existing_material.material_id,
+                        event_type=event_to_move.event_type
+                    ).first()
+
+                    if conflicting_event:
+                        conflicting_event.total_events += event_to_move.total_events
+                        if event_to_move.date > conflicting_event.date:
+                            conflicting_event.date = event_to_move.date
+                        db.session.delete(event_to_move)
+                    else:
+                        event_to_move.material = existing_material # Re-parent event
+                
+                # Flush changes to prevent NOT NULL violation before deleting the old material
+                db.session.flush()
+
+                # Delete the old, now empty, material
+                db.session.delete(material)
+                db.session.commit()
+                flash("Material updated and merged with an existing material.", "success")
+                return redirect(url_for("main.inventory", material_id=existing_material.material_id))
+            except Exception as e:
+                db.session.rollback()
+                flash(f"Error merging materials: {e}", "error")
+                return render_template("edit_material.html", material=material)
+
+        try:
+            material.brand = new_brand
+            material.material_type = new_type
+            material.description = request.form["description"]
+            material.lifecycle = request.form.get("lifecycle") or None
+            price_raw = request.form.get("price")
+            price = float(price_raw.replace(",", ".")) if price_raw else None
+            material.price = price
+            db.session.commit()
+        except ValueError as e:
+            db.session.rollback()
+            flash(str(e), "error")
+            return render_template("edit_material.html", material=material)
+
         return redirect(
             url_for(
                 "main.inventory",
@@ -849,37 +1024,23 @@ def edit_material(material_id: int):
 @main.route("/material/<int:material_id>/delete", methods=["POST"])
 def delete_material(material_id: int):
     """Delete a material and all its items from the database."""
-    
     material = Material.query.get_or_404(material_id)
-    
-    # Check if any items have reservations
-    items = Item.query.filter_by(material_id=material_id).all()
-    has_reservations = any(
-        sum(r.quantity for r in item.reservations) > 0 
-        for item in items
-    )
-    
-    if has_reservations:
-        flash("Cannot delete material: some items have active reservations.", "error")
+
+    # Prevent deletion if the material still has items associated with it.
+    if Item.query.filter_by(material_id=material_id).first():
+        flash("Cannot delete material: it still has items in inventory. Please delete the items first.", "error")
         return redirect(url_for("main.edit_material", material_id=material_id))
-    
+
     try:
-        # Delete all reservations for items of this material first
-        for item in items:
-            # Delete all reservations for this item
-            for reservation in item.reservations:
-                db.session.delete(reservation)
-            # Delete the item
-            db.session.delete(item)
-        
+        # If we are here, there are no items. We can safely delete related events and the material.
         # Delete material events for this material
         MaterialEvent.query.filter_by(material_id=material_id).delete()
-        
+
         # Delete the material
         db.session.delete(material)
         db.session.commit()
-        
-        flash("Material and all its items deleted successfully.", "success")
+
+        flash("Material deleted successfully.", "success")
         return redirect(url_for("main.inventory"))
     except Exception as e:
         db.session.rollback()
@@ -901,6 +1062,9 @@ def edit_item(item_id: int):
         )
         .get_or_404(item_id)
     )
+    
+    company_name = item.material.company_name
+    zones = Zone.query.filter_by(company_name=company_name).order_by(Zone.zone_name).all()
 
     if request.method == "POST":
         # Zone is free text: look it up or create it.
@@ -917,11 +1081,43 @@ def edit_item(item_id: int):
             db.session.add(zone)
             db.session.flush()
 
-        item.zone_id = zone.zone_id
+        # Check for existing item with the new properties (UC3)
+        existing_item = Item.query.filter(
+            Item.item_id != item_id,
+            Item.material_id == item.material_id,
+            Item.zone_id == zone.zone_id,
+            Item.purpose == request.form["purpose"],
+            Item.packaging == request.form["packaging"]
+        ).first()
+
+        if existing_item:
+            # Merge into existing item
+            try:
+                existing_item.quantity += item.quantity
+                # Overwrite comment of the target item
+                existing_item.comment = request.form.get("comment") or None
+
+                # Move reservations to the target item
+                for r in list(item.reservations):
+                    r.item = existing_item # Re-parenting is the idiomatic way
+
+                # Flush the session to persist the re-parenting before deleting the old item
+                db.session.flush()
+
+                db.session.delete(item)
+                db.session.commit()
+                flash("Item updated and merged with an existing item.", "success")
+                return redirect(url_for("main.inventory", material_id=item.material_id))
+            except Exception as e:
+                db.session.rollback()
+                flash(f"Error merging items: {e}", "error")
+                return render_template("edit_item.html", item=item, zones=zones)
+
+        # If no duplicate, just update the item
+        item.zone_id = zone.zone_id # zone_id is now set
         item.purpose = request.form["purpose"]
         item.packaging = request.form["packaging"]
         item.comment = request.form.get("comment") or None
-
         db.session.commit()
 
         return redirect(
@@ -932,7 +1128,7 @@ def edit_item(item_id: int):
             )
         )
 
-    return render_template("edit_item.html", item=item)
+    return render_template("edit_item.html", item=item, zones=zones)
 
 
 # ---------------------------------------------------------------------------
@@ -1032,9 +1228,19 @@ def return_item(reservation_id):
                     recently_changed_ids.append(target_item_id)
 
         # --- Werk de oorspronkelijke reservatie bij ---
-        reservation.quantity -= total_qty_processed
-        if reservation.quantity <= 0:
+        new_res_quantity = reservation.quantity - total_qty_processed
+        if new_res_quantity <= 0:
+            # Verwijder de reservatie als de hoeveelheid 0 of minder is
             db.session.delete(reservation)
+        else:
+            # Anders, update de hoeveelheid (dit voorkomt de ValueError van de validator)
+            reservation.quantity = new_res_quantity
+
+        # Als het item geen voorraad meer heeft en geen reservaties, verwijder het dan.
+        # De 'item.reservations' collectie is bijgewerkt in de sessie na de delete/update hierboven.
+        if item.quantity <= 0 and not item.reservations:
+            db.session.delete(item)
+            flash("Item has been removed as its quantity is zero and it has no pending reservations.", "info")
 
         # Commit alle wijzigingen in één transactie
         db.session.commit()

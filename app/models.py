@@ -1,5 +1,6 @@
 from datetime import datetime #voor 'date'
 from sqlalchemy import CheckConstraint
+from sqlalchemy.orm import validates
 
 
 from flask_sqlalchemy import SQLAlchemy
@@ -54,6 +55,12 @@ class Material(db.Model):
     items = db.relationship('Item', backref='material', lazy=True)
     material_events = db.relationship('MaterialEvent', backref='material', lazy=True)
 
+    @validates('price')
+    def validate_price(self, key, price):
+        if price is not None and price < 0:
+            raise ValueError("Price must be non-negative.")
+        return price
+
     def __repr__(self):
         return f"<ID= {self.material_id}: brand={self.brand} and type={self.material_type}>" #geen 'description' want vaak te lang
 
@@ -89,6 +96,12 @@ class Item(db.Model):
 
     reservations = db.relationship('Reservation', backref='item', lazy=True)
 
+    @validates('quantity')
+    def validate_quantity(self, key, quantity):
+        if quantity is not None and quantity < 0:
+            raise ValueError("Quantity must be non-negative.")
+        return quantity
+
     def __repr__(self):
         return f"<Item_ID={self.item_id}>"
 
@@ -104,6 +117,12 @@ class Reservation(db.Model):
     __table_args__ = (
         CheckConstraint('quantity > 0', name='CC3'),
     )
+
+    @validates('quantity')
+    def validate_quantity(self, key, quantity):
+        if quantity is not None and quantity <= 0:
+            raise ValueError("Quantity must be a positive number.")
+        return quantity
 
     #geen relationship nodig, want we navigaties al mogelijk via backref
 
@@ -129,4 +148,3 @@ class MaterialEvent(db.Model): #Counter
 
     def __repr__(self):
         return f"<MaterialEvent: {self.event_type} by user {self.username} to material={self.material_id} at {self.date}>"
-

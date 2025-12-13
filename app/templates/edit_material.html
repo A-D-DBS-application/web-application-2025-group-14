@@ -59,6 +59,82 @@
 </style>
 
 <script>
+document.addEventListener("DOMContentLoaded", function() {
+    // Add a style tag for the autofill class
+    const style = document.createElement('style');
+    style.innerHTML = `.autofilled { background-color: #f2f2f2 !important; }`;
+    document.head.appendChild(style);
+
+    // --- AUTO-FILL MATERIAL DETAILS ---
+    const brandInput = document.querySelector('input[name="brand"]');
+    const typeInput = document.querySelector('input[name="material_type"]');
+    const descInput = document.querySelector('textarea[name="description"]');
+    const priceInput = document.querySelector('input[name="price"]');
+    const lifecycleInput = document.querySelector('input[name="lifecycle"]');
+
+    const autofillElements = [descInput, priceInput, lifecycleInput];
+
+    function setAutofilled(element, value) {
+        if (element.value !== value) {
+            element.value = value;
+        }
+        element.classList.add('autofilled');
+        
+        element.addEventListener('input', function onFirstInput() {
+            element.classList.remove('autofilled');
+            element.removeEventListener('input', onFirstInput);
+        }, { once: true });
+    }
+
+    function clearAutofilled(elements) {
+        elements.forEach(el => {
+            if (el.classList.contains('autofilled')) {
+                el.value = '';
+                el.classList.remove('autofilled');
+            }
+        });
+    }
+
+    async function fetchMaterialDetails() {
+        const brand = brandInput.value.trim();
+        const type = typeInput.value.trim();
+        const materialId = "{{ material.material_id }}";
+
+        if (!brand || !type) {
+            clearAutofilled(autofillElements);
+            return;
+        }
+
+        try {
+            const params = new URLSearchParams({ brand, type, exclude_id: materialId });
+            const response = await fetch(`/material_details?${params.toString()}`);
+            
+            if (!response.ok) {
+                clearAutofilled(autofillElements);
+                return;
+            }
+
+            const data = await response.json();
+
+            if (data && data.description) {
+                setAutofilled(descInput, data.description || '');
+                setAutofilled(priceInput, data.price || '');
+                setAutofilled(lifecycleInput, data.lifecycle || '');
+            } else {
+                clearAutofilled(autofillElements);
+            }
+        } catch (error) {
+            console.error('Error fetching material details:', error);
+            clearAutofilled(autofillElements);
+        }
+    }
+
+    brandInput.addEventListener('input', fetchMaterialDetails);
+    typeInput.addEventListener('input', fetchMaterialDetails);
+});
+</script>
+
+<script>
 document.addEventListener('DOMContentLoaded', function() {
     const form = document.querySelector('.filter-form');
     if (!form) return;
