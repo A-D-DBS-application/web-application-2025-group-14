@@ -956,17 +956,17 @@ def return_item(reservation_id):
             qty_discard = int(request.form.get("qty_discard") or 0)
             qty_changed = int(request.form.get("qty_mark_changed") or 0)
         except (ValueError, TypeError):
-            flash("Ongeldige hoeveelheid ingevoerd.", "error")
+            flash("Invalid quantity entered.", "error")
             return redirect(url_for(".return_item", reservation_id=reservation_id))
 
         # Validatie
         total_qty_processed = qty_stock + qty_discard + qty_changed
         if total_qty_processed <= 0:
-            flash("Geef een hoeveelheid op voor minstens één actie.", "error")
+            flash("Specify a quantity for at least one action.", "error")
             return redirect(url_for(".return_item", reservation_id=reservation_id))
 
         if total_qty_processed > reservation.quantity:
-            flash(f"Totale hoeveelheid ({total_qty_processed}) is meer dan gereserveerd ({reservation.quantity}).", "error")
+            flash(f"Total quantity ({total_qty_processed}) is more than reserved ({reservation.quantity}).", "error")
             return redirect(url_for(".return_item", reservation_id=reservation_id))
 
         # --- Verwerk actie: Terug naar stock ---
