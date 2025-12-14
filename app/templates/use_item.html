@@ -4,61 +4,62 @@
 {% block title %}Reserve item{% endblock %}
 
 {% block content %}
-<div class="form-page">
-    <h1 class="page-title">Reserve item</h1>
+<div class="return-modal is-open">
+    <a href="{{ url_for('main.inventory', brand=request.args.get('brand'), material_id=request.args.get('material_id')) }}" class="return-backdrop"></a>
+    <div class="return-dialog">
+        <div class="modal-header">
+            <h2>Reserve item</h2>
+            <a href="{{ url_for('main.inventory', brand=request.args.get('brand'), material_id=request.args.get('material_id')) }}" class="modal-close">×</a>
+        </div>
+        <div class="modal-body">
+            <p>
+                <strong>{{ item.material.brand }} – {{ item.material.material_type }}</strong><br>
+                {{ item.material.description }}<br>
+                <span class="muted">Zone {{ item.zone.zone_name }}</span><br>
+                <strong>Available:</strong> {{ available }}
+            </p>
 
-    <p>
-        <strong>{{ item.material.brand }} – {{ item.material.material_type }}</strong><br>
-        {{ item.material.description }}<br>
-        Zone {{ item.zone.zone_name }}<br>
-        <strong>Available:</strong> {{ available }}
-    </p>
+            {% if error %}
+            <div class="flash-message flash-error" style="margin-bottom: 15px; border-radius: 8px;">
+                {{ error }}
+            </div>
+            {% endif %}
 
-    {% if error %}
-    <div class="Invalid value" style="margin-bottom: 15px;">
-        {{ error }}
-    </div>
-    {% endif %}
-
-    <form method="post" class="form-card form-card-wide">
-        <section class="form-section">
-            <div class="form-grid-2">
-
-                <div class="form-group">
-                    <label for="username">User</label>
+            <form method="post" class="filter-form" style="max-width:400px; margin-top: 16px;">
+                <label>
+                    User
                     <input id="username"
                            name="username"
                            type="text"
                            value="{{ session.get('username') }}"
                            required>
-                </div>
+                </label>
 
-                <div class="form-group">
-                    <label for="project">Project</label>
+                <label>
+                    Project
                     <input id="project" name="project" type="text">
-                </div>
+                </label>
 
-                <div class="form-group">
-                    <label for="quantity">Quantity</label>
+                <label>
+                    Quantity
                     <input id="quantity"
                            name="quantity"
                            type="number"
                            min="1"
                            max="{{ available }}"
                            required>
+                </label>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">Reserve</button>
+                    <a href="{{ url_for('main.inventory',
+                                        brand=request.args.get('brand'),
+                                        material_id=request.args.get('material_id')) }}"
+                       class="btn-secondary">Cancel</a>
                 </div>
-
-            </div>
-        </section>
-
-        <div class="form-actions">
-            <button type="submit" class="btn-primary">Reserve</button>
-            <a href="{{ url_for('main.inventory',
-                                brand=request.args.get('brand'),
-                                material_id=request.args.get('material_id')) }}"
-               class="btn-secondary">Cancel</a>
+            </form>
         </div>
-    </form>
+    </div>
 </div>
 <script>
 document.getElementById("quantity").addEventListener("input", function () {
@@ -67,6 +68,7 @@ document.getElementById("quantity").addEventListener("input", function () {
 
     if (value > max) {
         this.setCustomValidity("You cannot reserve more items than are available.");
+        this.reportValidity();
     } else {
         this.setCustomValidity("");
     }

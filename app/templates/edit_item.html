@@ -1,64 +1,68 @@
 {% extends "base.html" %}
-{% block body_class %}has-overlay{% endblock %}
-
+{% block body_class %}no-sidebar{% endblock %}
 
 {% block title %}Edit item{% endblock %}
 
 {% block content %}
-<h1>Edit item</h1>
+<div class="return-modal is-open">
+    <a href="{{ url_for('main.inventory', brand=item.material.brand, material_id=item.material.material_id) }}" class="return-backdrop"></a>
+    <div class="return-dialog">
+        <div class="modal-header">
+            <h2>Edit item</h2>
+            <a href="{{ url_for('main.inventory', brand=item.material.brand, material_id=item.material.material_id) }}" class="modal-close">×</a>
+        </div>
+        <div class="modal-body">
+            <p>
+                <strong>{{ item.material.brand }} – {{ item.material.material_type }}</strong><br>
+                {{ item.material.description }}
+            </p>
 
-<p>
-    <strong>{{ item.material.brand }} – {{ item.material.material_type }}</strong><br>
-    {{ item.material.description }}
-</p>
+            <form method="post" class="filter-form" style="max-width:400px; margin-top: 16px;">
+                <label>
+                    Zone
+                    <input
+                        id="zone_name"
+                        name="zone_name"
+                        type="text"
+                        class="form-input"
+                        value="{{ item.zone.zone_name }}"
+                        required
+                    >
+                </label>
 
-<form method="post" class="filter-form" style="max-width:400px;">
-    <label>
-        <div class="form-row">
-    <label for="zone_name">Zone</label>
-    <!-- vrij invulbaar tekstveld -->
-    <input
-        id="zone_name"
-        name="zone_name"
-        type="text"
-        class="form-input"
-        value="{{ item.zone.zone_name }}"
-        required
-    >
-</div>
-    </label>
+                <label>
+                    Purpose
+                    <select name="purpose" required>
+                        <option value="keep"    {% if item.purpose == 'keep' %}selected{% endif %}>keep</option>
+                        <option value="sell"    {% if item.purpose == 'sell' %}selected{% endif %}>sell</option>
+                        <option value="dispose" {% if item.purpose == 'dispose' %}selected{% endif %}>dispose</option>
+                    </select>
+                </label>
 
-    <label>
-        Purpose
-        <select name="purpose" required>
-            <option value="keep"    {% if item.purpose == 'keep' %}selected{% endif %}>keep</option>
-            <option value="sell"    {% if item.purpose == 'sell' %}selected{% endif %}>sell</option>
-            <option value="dispose" {% if item.purpose == 'dispose' %}selected{% endif %}>dispose</option>
-        </select>
-    </label>
+                <label>
+                    Packaging
+                    <select name="packaging" required>
+                        <option value="open"   {% if item.packaging == 'open' %}selected{% endif %}>open</option>
+                        <option value="closed" {% if item.packaging == 'closed' %}selected{% endif %}>closed</option>
+                        <option value="none"   {% if item.packaging == 'none' %}selected{% endif %}>none</option>
+                    </select>
+                </label>
 
-    <label>
-        Packaging
-        <select name="packaging" required>
-            <option value="open"   {% if item.packaging == 'open' %}selected{% endif %}>open</option>
-            <option value="closed" {% if item.packaging == 'closed' %}selected{% endif %}>closed</option>
-            <option value="none"   {% if item.packaging == 'none' %}selected{% endif %}>none</option>
-        </select>
-    </label>
+                <label>
+                    Comment
+                    <input type="text" name="comment" value="{{ item.comment or '' }}">
+                </label>
 
-    <label>
-        Comment
-        <input type="text" name="comment" value="{{ item.comment or '' }}">
-    </label>
-
-    <div class="filter-actions">
-        <button type="submit" class="btn-primary">Save</button>
-        <a href="{{ url_for('main.inventory',
-                            brand=item.material.brand,
-                            material_id=item.material.material_id) }}"
-           class="btn-secondary">Cancel</a>
+                <div class="filter-actions">
+                    <button type="submit" class="btn-primary">Save</button>
+                    <a href="{{ url_for('main.inventory',
+                                        brand=item.material.brand,
+                                        material_id=item.material.material_id) }}"
+                       class="btn-secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
     </div>
-</form>
 
 <script>
 document.addEventListener("DOMContentLoaded", function() {
