@@ -81,14 +81,15 @@
             {% if active_material %}
                 <a href="{{ url_for('main.edit_material', material_id=active_material.material_id,
                                     brand=active_brand,
-                                    material_id_for_return=active_material_id,
+                                    material_id_for_return=active_material_id, 
                                     q_brand=q_brand, q_type=q_type,
                                     q_desc=q_desc, q_zone=q_zone,
                                     q_lifecycle=q_lifecycle,
                                     filter_purpose=filter_purpose,
                                     filter_packaging=filter_packaging) }}"
-                   class="icon-small icon-small-outline"
-                   title="Edit material">
+                   class="icon-small icon-small-outline edit-material-btn"
+                   title="Edit material"
+                   id="edit-material-btn">
                     ✎
                 </a>
             {% endif %}
@@ -546,6 +547,22 @@
     </div>
 </div>
 
+<!-- EDIT MATERIAL MODAL -->
+<div id="editMaterialModal" class="return-modal">
+    <div class="return-backdrop" onclick="closeEditMaterialModal()"></div>
+    <div class="return-dialog">
+
+        <div class="modal-header">
+            <h2>Edit Material</h2>
+            <button class="modal-close" onclick="closeEditMaterialModal()">×</button>
+        </div>
+
+        <div id="editMaterialModalContent" class="modal-body">
+            <!-- Content loaded via AJAX -->
+        </div>
+    </div>
+</div>
+
 <!-- EDIT ITEM MODAL -->
 <div id="editItemModal" class="return-modal">
     <div class="return-backdrop" onclick="closeEditItemModal()"></div>
@@ -963,6 +980,35 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
     
+    // Edit material button handler
+    const editMaterialBtn = document.getElementById('edit-material-btn');
+    if (editMaterialBtn) {
+        editMaterialBtn.addEventListener("click", async (e) => {
+            e.preventDefault();
+            const url = editMaterialBtn.getAttribute('href');
+            const modal = document.getElementById("editMaterialModal");
+            const container = document.getElementById("editMaterialModalContent");
+            
+            if (!modal || !container || !url) return;
+            
+            // Show loading state
+            container.innerHTML = '<div class="modal-loading"><div class="loading-spinner"></div><span>Loading...</span></div>';
+            modal.classList.add("is-open");
+            modal.style.display = "flex";
+            
+            try {
+                const response = await fetch(url, {
+                    headers: { "X-Requested-With": "XMLHttpRequest" }
+                });
+                const html = await response.text();
+                container.innerHTML = html;
+            } catch (error) {
+                console.error("Error loading edit material form:", error);
+                container.innerHTML = '<div class="modal-loading" style="color: #dc2626;"><span>Error loading form. Please try again.</span></div>';
+            }
+        });
+    }
+
     // Handle form submission in modal - let it submit normally
     // The form will redirect on success, which is handled by the browser
 
@@ -985,6 +1031,15 @@ function closeEditItemModal() {
     }
 }
 window.closeEditItemModal = closeEditItemModal;
+
+function closeEditMaterialModal() {
+    const modal = document.getElementById("editMaterialModal");
+    if (modal) {
+        modal.classList.remove("is-open");
+        modal.style.display = "none";
+    }
+}
+window.closeEditMaterialModal = closeEditMaterialModal;
 
 function closeReserveItemModal() {
     const modal = document.getElementById("reserveItemModal");

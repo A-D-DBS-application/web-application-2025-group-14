@@ -195,10 +195,9 @@ def inventory():
             Material,
             func.coalesce(func.sum(Item.quantity), 0).label("total_quantity"), #coalesce om None te vermijden
         )
-        .join(Item)
+        .outerjoin(Item)
         .filter(Material.company_name == company_name)
         .group_by(Material.material_id)
-        .having(func.count(Item.item_id) > 0)  # Include materials with items, even if quantity is 0
         .order_by(Material.brand, Material.material_type)
         .all()
     )
@@ -1064,6 +1063,9 @@ def edit_material(material_id: int):
                 material_id=material.material_id,
             )
         )
+
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return render_template("edit_material_partial.html", material=material)
 
     return render_template("edit_material.html", material=material)
 
