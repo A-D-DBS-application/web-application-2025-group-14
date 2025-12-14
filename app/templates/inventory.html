@@ -848,6 +848,54 @@ function initAddItemModalContent() {
 // Wanneer men op het icoontje klikt
 document.addEventListener("DOMContentLoaded", () => {
 
+    // --- UNIVERSAL AJAX FORM SUBMISSION FOR MODALS ---
+    // Use event delegation to handle submissions for any form loaded into a modal.
+    document.body.addEventListener('submit', async function(e) {
+        const form = e.target;
+        const modalBody = form.closest('.modal-body');
+
+        // If the form is not inside a .modal-body, let it submit normally.
+        if (!modalBody) {
+            return;
+        }
+
+        // Otherwise, handle it with AJAX.
+        e.preventDefault();
+
+        const submitButton = form.querySelector('button[type="submit"]');
+        if (submitButton) {
+            submitButton.disabled = true;
+            submitButton.textContent = 'Processing...';
+        }
+
+        try {
+            const response = await fetch(form.action, {
+                method: 'POST',
+                body: new FormData(form),
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+
+            // If server responds with a redirect, follow it.
+            if (response.redirected) {
+                window.location.href = response.url;
+                return;
+            }
+
+            // If server responds with an error (e.g., validation failed),
+            // it will return the re-rendered partial. We replace the content.
+            if (!response.ok) {
+                modalBody.innerHTML = await response.text();
+                return;
+            }
+
+            // For any other success case, a page reload is the safest default.
+            window.location.reload();
+        } catch (error) {
+            console.error("Error submitting modal form:", error);
+            modalBody.innerHTML = '<div class="flash-message flash-error">An unexpected error occurred. Please try again.</div>';
+        }
+    });
+
     document.querySelectorAll(".return-btn").forEach(btn => {
         btn.addEventListener("click", async (e) => {
             e.preventDefault();

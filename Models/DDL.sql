@@ -47,7 +47,7 @@ CREATE TABLE item (
   CONSTRAINT CC3 CHECK(packaging IN('open', 'closed', 'none')),
   CONSTRAINT CC4 CHECK(quantity >= 0),
   FOREIGN KEY (material_id) REFERENCES material (material_id)
-    ON DELETE RESTRICT ON UPDATE CASCADE,
+    ON DELETE CASCADE ON UPDATE CASCADE,
   FOREIGN KEY (zone_id) REFERENCES zone (zone_id)
     ON DELETE RESTRICT ON UPDATE CASCADE
 );

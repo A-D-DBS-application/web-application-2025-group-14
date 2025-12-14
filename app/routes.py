@@ -826,80 +826,59 @@ def add_item():
 @main.route("/item/<int:item_id>/use", methods=["GET", "POST"])
 def use_item(item_id: int):
     item = Item.query.get_or_404(item_id)
-
-    # Calculate reserved and available
-    already_reserved = sum(r.quantity for r in item.reservations)
     available = item.quantity
 
     if request.method == "POST":
+        error_msg = None
         username = request.form["username"].strip()
         project = request.form.get("project") or None
+
         try:
             quantity = int(request.form["quantity"])
         except (ValueError, TypeError):
-            return render_template("use_item.html", item=item, available=available, error="Invalid quantity entered.")
-        # --- User validation ---
-        user_exists = User.query.filter_by(
-            username=username,
-            company_name=item.material.company_name
-        ).first()
+            error_msg = "Invalid quantity entered."
 
-        if not user_exists:
-            error_msg = f"This user '{username}' does not exist in your organization."
-            # Check if this is an AJAX request (for modal)
-            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-                return render_template("use_item_partial.html", item=item, available=available, error=error_msg)
-            return render_template(
-                "use_item.html",
-                item=item,
-                available=available,
-                error=error_msg
-            )
+        user_exists = None
+        if not error_msg:
+            # --- User validation (case-insensitive) ---
+            user_exists = User.query.filter(
+                func.lower(User.username) == func.lower(username),
+                User.company_name == item.material.company_name
+            ).first()
 
-        # --- Availability check ---
-        if quantity > available:
-            error_msg = (
-                f"Not enough stock available. Available: {available}, "
-                f"requested: {quantity}."
-            )
-            # Check if this is an AJAX request (for modal)
+            if not user_exists:
+                error_msg = f"This user '{username}' does not exist in your organization."
+            # --- Availability check ---
+            elif quantity > available:
+                error_msg = f"Not enough stock available. Available: {available}, requested: {quantity}."
+
+        # If there was a validation error, render the form again with the error
+        if error_msg:
             if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-                return render_template("use_item_partial.html", item=item, available=available, error=error_msg)
+                return render_template("use_item_partial.html", item=item, available=available, error=error_msg), 400
             return render_template("use_item.html", item=item, available=available, error=error_msg)
 
-        # --- Create reservation ---
+        # --- All validation passed, proceed with reservation ---
         try:
             reservation = Reservation(
-                item_id=item.item_id,
-                username=username,
-                quantity=quantity,
-                project=project,
+                item_id=item.item_id, username=user_exists.username, quantity=quantity, project=project
             )
             db.session.add(reservation)
+            item.quantity -= quantity
+            db.session.commit()
+            flash(f"{quantity} item(s) reserved successfully.", "success")
+
+            # 👉 reserve-event loggen
+            username_pk = session.get("username_pk") or username
+            record_material_event(username=username_pk, material_id=item.material_id, event_type="reserve")
+            return redirect_back()
         except ValueError as e:
             db.session.rollback()
-            # Check if this is an AJAX request (for modal)
             if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-                return render_template("use_item_partial.html", item=item, available=available, error=str(e))
+                return render_template("use_item_partial.html", item=item, available=available, error=str(e)), 400
             return render_template("use_item.html", item=item, available=available, error=str(e))
 
-        # --- Reduce real stock directly ---
-        item.quantity -= quantity
-        db.session.commit()
-        flash(f"{quantity} item(s) reserved successfully.", "success")
-
-        # 👉 reserve-event loggen
-        username_pk = session.get("username_pk") or username
-        record_material_event(
-            username=username_pk,
-            material_id=item.material_id,
-            event_type="reserve",
-        )
-
-        return redirect_back()
-
-
-    # Check if this is an AJAX request (for modal)
+    # GET request
     if request.headers.get("X-Requested-With") == "XMLHttpRequest":
         return render_template("use_item_partial.html", item=item, available=available)
     
