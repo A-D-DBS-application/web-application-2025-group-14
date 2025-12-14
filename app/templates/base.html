@@ -217,11 +217,17 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.key === 'Escape') {
             const openModal = document.querySelector('.return-modal.is-open');
             if (openModal) {
-                if (openModal.id === 'addItemModal') {
+                // Use a generic approach that works for all modals
+                if (openModal.id === 'addItemModal' && typeof closeAddItemModal === 'function') {
                     closeAddItemModal();
-                } else if (openModal.id === 'returnModal') {
+                } else if (openModal.id === 'editItemModal' && typeof closeEditItemModal === 'function') {
+                    closeEditItemModal();
+                } else if (openModal.id === 'reserveItemModal' && typeof closeReserveItemModal === 'function') {
+                    closeReserveItemModal();
+                } else if (openModal.id === 'returnModal' && typeof closeReturnModal === 'function') {
                     closeReturnModal();
                 } else {
+                    // Generic fallback: just close the modal
                     openModal.classList.remove('is-open');
                     openModal.style.display = 'none';
                 }

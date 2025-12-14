@@ -5,11 +5,11 @@
 
 {% block content %}
 <div class="return-modal is-open">
-    <a href="{{ url_for('main.inventory', brand=item.material.brand, material_id=item.material.material_id) }}" class="return-backdrop"></a>
+    <a href="{{ url_for('main.inventory', brand=request.args.get('brand'), material_id=request.args.get('material_id')) }}" class="return-backdrop"></a>
     <div class="return-dialog">
         <div class="modal-header">
             <h2>Edit item</h2>
-            <a href="{{ url_for('main.inventory', brand=item.material.brand, material_id=item.material.material_id) }}" class="modal-close">×</a>
+            <a href="{{ url_for('main.inventory', brand=request.args.get('brand'), material_id=request.args.get('material_id')) }}" class="modal-close">×</a>
         </div>
         <div class="modal-body">
             <p>
@@ -56,14 +56,14 @@
                 <div class="filter-actions">
                     <button type="submit" class="btn-primary">Save</button>
                     <a href="{{ url_for('main.inventory',
-                                        brand=item.material.brand,
-                                        material_id=item.material.material_id) }}"
+                                        brand=request.args.get('brand'),
+                                        material_id=request.args.get('material_id')) }}"
                        class="btn-secondary">Cancel</a>
                 </div>
             </form>
         </div>
     </div>
-
+</div>
 <script>
 document.addEventListener("DOMContentLoaded", function() {
     // Add a style tag for the autofill class

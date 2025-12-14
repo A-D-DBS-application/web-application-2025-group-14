@@ -1,0 +1,70 @@
+{# Partial used inside the reserve item modal (loaded via fetch) #}
+<div class="reserve-item-content">
+    <p style="margin-bottom: 16px; color: #6b7280;">
+        <strong style="color: #1e293b;">{{ item.material.brand }} – {{ item.material.material_type }}</strong><br>
+        {{ item.material.description }}<br>
+        <span style="color: #64748b;">Zone {{ item.zone.zone_name }}</span><br>
+        <strong style="color: #1e293b;">Available:</strong> {{ available }}
+    </p>
+
+    {% if error %}
+    <div class="flash-message flash-error" style="margin-bottom: 15px; border-radius: 8px;">
+        {{ error }}
+    </div>
+    {% endif %}
+
+    <form method="post" 
+          action="{{ url_for('main.use_item', item_id=item.item_id, brand=request.args.get('brand'), material_id=request.args.get('material_id')) }}"
+          id="reserve-item-form"
+          class="filter-form" 
+          style="max-width:400px;">
+        <label>
+            User
+            <input id="username"
+                   name="username"
+                   type="text"
+                   value="{{ session.get('username') }}"
+                   required>
+        </label>
+
+        <label>
+            Project
+            <input id="project" name="project" type="text">
+        </label>
+
+        <label>
+            Quantity
+            <input id="quantity"
+                   name="quantity"
+                   type="number"
+                   min="1"
+                   max="{{ available }}"
+                   required>
+        </label>
+
+        <div class="form-actions">
+            <button type="submit" class="btn-primary">Reserve</button>
+            <button type="button" class="btn-secondary" onclick="closeReserveItemModal(); return false;">Cancel</button>
+        </div>
+    </form>
+</div>
+
+<script>
+(function() {
+    const quantityInput = document.getElementById("quantity");
+    if (quantityInput) {
+        quantityInput.addEventListener("input", function () {
+            const max = parseInt(this.max);
+            const value = parseInt(this.value);
+
+            if (value > max) {
+                this.setCustomValidity("You cannot reserve more items than are available.");
+                this.reportValidity();
+            } else {
+                this.setCustomValidity("");
+            }
+        });
+    }
+})();
+</script>
+

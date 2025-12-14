@@ -288,18 +288,19 @@
             </div>
 
             <div class="item-actions">
-                <form action="{{ url_for('main.use_item',
-                         item_id=item.item_id,
-                         brand=active_brand,
-                         material_id=active_material_id) }}"
-                    method="get">
-                    <button type="submit" class="btn-primary">Reserve</button>
-                </form>
+                <button type="button"
+                        class="btn-primary reserve-item-btn"
+                        data-item-id="{{ item.item_id }}"
+                        data-brand="{{ active_brand or '' }}"
+                        data-material-id="{{ active_material_id or '' }}">Reserve</button>
 
                 <div class="item-actions-secondary">
-                    <a href="{{ url_for('main.edit_item', item_id=item.item_id) }}"
-                       class="icon-small"
-                       title="Edit item">✎</a>
+                    <button type="button"
+                            class="icon-small edit-item-btn"
+                            data-item-id="{{ item.item_id }}"
+                            data-brand="{{ active_brand or '' }}"
+                            data-material-id="{{ active_material_id or '' }}"
+                            title="Edit item">✎</button>
                 </div>
             </div>
         </article>
@@ -529,6 +530,36 @@
     </div>
 </div>
 
+<!-- EDIT ITEM MODAL -->
+<div id="editItemModal" class="return-modal">
+    <div class="return-backdrop" onclick="closeEditItemModal()"></div>
+    <div class="return-dialog">
+
+        <div class="modal-header">
+            <h2>Edit Item</h2>
+            <button class="modal-close" onclick="closeEditItemModal()">×</button>
+        </div>
+
+        <div id="editItemModalContent" class="modal-body">
+            <!-- Content loaded via AJAX -->
+        </div>
+    </div>
+</div>
+
+<!-- RESERVE ITEM MODAL -->
+<div id="reserveItemModal" class="return-modal">
+    <div class="return-backdrop" onclick="closeReserveItemModal()"></div>
+    <div class="return-dialog" style="max-width: 500px; max-height: 90vh;">
+        <div class="modal-header">
+            <h2>Reserve Item</h2>
+            <button class="modal-close" onclick="closeReserveItemModal()">×</button>
+        </div>
+        <div id="reserveItemModalContent" class="modal-body">
+            <!-- Content loaded via AJAX -->
+        </div>
+    </div>
+</div>
+
 <script>
 
 // Attach handlers for the return modal (runs after the partial is injected)
@@ -749,6 +780,81 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
     
+    // Reserve item button handler
+    document.querySelectorAll('.reserve-item-btn').forEach(btn => {
+        btn.addEventListener("click", async (e) => {
+            e.preventDefault();
+            const itemId = btn.getAttribute('data-item-id');
+            const brand = btn.getAttribute('data-brand') || '';
+            const materialId = btn.getAttribute('data-material-id') || '';
+            const modal = document.getElementById("reserveItemModal");
+            const container = document.getElementById("reserveItemModalContent");
+            
+            if (!modal || !container || !itemId) return;
+            
+            // Build URL with query params to preserve current page state
+            const params = new URLSearchParams();
+            if (brand) params.set('brand', brand);
+            if (materialId) params.set('material_id', materialId);
+            const url = `/item/${itemId}/use${params.toString() ? '?' + params.toString() : ''}`;
+            
+            // Show loading state
+            container.innerHTML = '<div class="modal-loading"><div class="loading-spinner"></div><span>Loading...</span></div>';
+            modal.classList.add("is-open");
+            modal.style.display = "flex";
+            
+            try {
+                const response = await fetch(url, {
+                    headers: { "X-Requested-With": "XMLHttpRequest" }
+                });
+                const html = await response.text();
+                container.innerHTML = html;
+            } catch (error) {
+                console.error("Error loading reserve item form:", error);
+                container.innerHTML = '<div class="modal-loading" style="color: #dc2626;"><span>Error loading form. Please try again.</span></div>';
+            }
+        });
+    });
+    
+    // Edit item button handler (exactly like reserve-btn)
+    document.querySelectorAll('.edit-item-btn').forEach(btn => {
+        btn.addEventListener("click", async (e) => {
+            e.preventDefault();
+            const itemId = btn.getAttribute('data-item-id');
+            const brand = btn.getAttribute('data-brand') || '';
+            const materialId = btn.getAttribute('data-material-id') || '';
+            const modal = document.getElementById("editItemModal");
+            const container = document.getElementById("editItemModalContent");
+            
+            if (!modal || !container || !itemId) return;
+            
+            // Build URL with query params to preserve current page state
+            const params = new URLSearchParams();
+            if (brand) params.set('brand', brand);
+            if (materialId) params.set('material_id', materialId);
+            const url = `/item/${itemId}/edit${params.toString() ? '?' + params.toString() : ''}`;
+            
+            // Show loading state
+            container.innerHTML = '<div class="modal-loading"><div class="loading-spinner"></div><span>Loading...</span></div>';
+            modal.classList.add("is-open");
+            modal.style.display = "flex";
+            
+            try {
+                const response = await fetch(url, {
+                    headers: { "X-Requested-With": "XMLHttpRequest" }
+                });
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const html = await response.text();
+                container.innerHTML = html;
+            } catch (error) {
+                console.error("Error loading edit item form:", error);
+                container.innerHTML = '<div class="modal-loading" style="color: #dc2626;"><span>Error loading form. Please try again.</span></div>';
+            }
+        });
+    });
+    
     // Handle form submission in modal - let it submit normally
     // The form will redirect on success, which is handled by the browser
 
@@ -761,6 +867,25 @@ function closeAddItemModal() {
         modal.style.display = "none";
     }
 }
+window.closeAddItemModal = closeAddItemModal;
+
+function closeEditItemModal() {
+    const modal = document.getElementById("editItemModal");
+    if (modal) {
+        modal.classList.remove("is-open");
+        modal.style.display = "none";
+    }
+}
+window.closeEditItemModal = closeEditItemModal;
+
+function closeReserveItemModal() {
+    const modal = document.getElementById("reserveItemModal");
+    if (modal) {
+        modal.classList.remove("is-open");
+        modal.style.display = "none";
+    }
+}
+window.closeReserveItemModal = closeReserveItemModal;
 
 </script>
 <script>
@@ -784,6 +909,7 @@ function closeReturnModal() {
     modal.classList.remove("is-open");
     modal.style.display = "none";
 }
+window.closeReturnModal = closeReturnModal;
 </script>
 <script>
 document.addEventListener("DOMContentLoaded", function () {

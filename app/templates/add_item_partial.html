@@ -28,7 +28,14 @@
 
                 <div class="form-group">
                     <label for="price">Price (€)</label>
-                    <input type="text" id="price" name="price" placeholder="e.g. 12.50">
+                    <input type="number" 
+                           id="price" 
+                           name="price" 
+                           step="0.01" 
+                           placeholder="e.g. 12.50">
+                    <div id="price-error" class="field-error" style="display: none; color: #dc2626; font-size: 13px; margin-top: 4px;">
+                        Price must be greater than or equal to 0
+                    </div>
                 </div>
 
                 <div class="form-group">
@@ -46,6 +53,9 @@
                 <div class="form-group">
                     <label for="quantity">Quantity</label>
                     <input type="number" id="quantity" name="quantity" min="0" required>
+                    <div id="quantity-error" class="field-error" style="display: none; color: #dc2626; font-size: 13px; margin-top: 4px;">
+                        Quantity must be positive
+                    </div>
                 </div>
 
                 <div class="form-group">
@@ -84,3 +94,126 @@
         </div>
     </form>
 </div>
+
+<script>
+// Initialize brand suggestions when modal content is loaded
+(function() {
+    const brandInput = document.getElementById("brand");
+    if (brandInput) {
+        brandInput.addEventListener("input", function () {
+            const q = this.value.trim();
+            const box = document.getElementById("brand_suggestions");
+
+            if (q.length === 0) {
+                box.innerHTML = "";
+                return;
+            }
+
+            fetch(`/brand_suggest?q=${encodeURIComponent(q)}`)
+                .then(r => r.json())
+                .then(data => {
+                    if (!data.suggestions.length) {
+                        box.innerHTML = "";
+                        return;
+                    }
+
+                    box.innerHTML = data.suggestions
+                        .map(s => `<div class="suggestion" style="cursor:pointer;">${s}</div>`)
+                        .join("");
+
+                    document.querySelectorAll(".suggestion").forEach(el => {
+                        el.onclick = () => {
+                            document.getElementById("brand").value = el.textContent;
+                            box.innerHTML = "";
+                        };
+                    });
+                });
+        });
+    }
+    
+    // Price validation - handle entirely in JavaScript to avoid browser's Dutch message
+    const priceInput = document.getElementById("price");
+    const priceError = document.getElementById("price-error");
+    
+    if (priceInput && priceError) {
+        // Always clear custom validity initially
+        priceInput.setCustomValidity("");
+        
+        // Validate on input
+        priceInput.addEventListener("input", function() {
+            const value = parseFloat(this.value);
+            if (this.value !== "" && (isNaN(value) || value < 0)) {
+                priceError.style.display = "block";
+                this.setCustomValidity("Price must be greater than or equal to 0");
+            } else {
+                priceError.style.display = "none";
+                this.setCustomValidity("");
+            }
+        });
+        
+        // Validate on blur
+        priceInput.addEventListener("blur", function() {
+            const value = parseFloat(this.value);
+            if (this.value !== "" && (isNaN(value) || value < 0)) {
+                priceError.style.display = "block";
+                this.setCustomValidity("Price must be greater than or equal to 0");
+            } else {
+                priceError.style.display = "none";
+                this.setCustomValidity("");
+            }
+        });
+        
+        // Prevent form submission with negative price
+        const form = document.getElementById("add-item-form");
+        if (form) {
+            form.addEventListener("submit", function(e) {
+                const value = parseFloat(priceInput.value);
+                if (priceInput.value !== "" && (isNaN(value) || value < 0)) {
+                    e.preventDefault();
+                    priceError.style.display = "block";
+                    priceInput.setCustomValidity("Price must be greater than or equal to 0");
+                    priceInput.focus();
+                    // Don't call reportValidity() to avoid browser's native message
+                    return false;
+                }
+                // Clear any custom validity if valid
+                priceInput.setCustomValidity("");
+            });
+        }
+    }
+    
+    // Quantity validation - ensure English message
+    const quantityInput = document.getElementById("quantity");
+    const quantityError = document.getElementById("quantity-error");
+    
+    if (quantityInput && quantityError) {
+        quantityInput.addEventListener("invalid", function(e) {
+            // Prevent default browser message
+            e.preventDefault();
+            
+            if (this.validity.rangeUnderflow) {
+                // Set custom English message
+                this.setCustomValidity("Quantity must be positive");
+                quantityError.style.display = "block";
+                
+                // Show our custom message instead of browser's default
+                requestAnimationFrame(() => {
+                    this.reportValidity();
+                });
+            }
+        });
+        
+        quantityInput.addEventListener("input", function() {
+            const value = parseInt(this.value);
+            if (this.value !== "" && (isNaN(value) || value < 0)) {
+                quantityError.style.display = "block";
+                this.setCustomValidity("Quantity must be positive");
+            } else {
+                quantityError.style.display = "none";
+                // Clear custom validity when valid
+                this.setCustomValidity("");
+            }
+        });
+    }
+})();
+</script>

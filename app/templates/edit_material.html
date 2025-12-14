@@ -1,12 +1,18 @@
 {% extends "base.html" %}
-{% block body_class %}no-sidebar{% endblock %}
+{% block body_class %}has-overlay{% endblock %}
 
 {% block title %}Edit material{% endblock %}
 
 {% block content %}
-<div class="return-modal is-open">
-    <a href="{{ url_for('main.inventory', brand=material.brand, material_id=material.material_id) }}" class="return-backdrop"></a>
-    <div class="return-dialog">
+{# Background inventory content - blurred #}
+<div id="inventory-background" style="position: fixed; inset: 0; z-index: 1; filter: blur(4px); pointer-events: none; overflow: hidden; background: #f8fafc;">
+    <iframe src="{{ url_for('main.inventory', brand=material.brand, material_id=material.material_id) }}" 
+            style="width: 100%; height: 100%; border: none; transform: scale(1.02); transform-origin: top left;"></iframe>
+</div>
+
+<div class="return-modal is-open" style="position: fixed; inset: 0; z-index: 1200;">
+    <div class="return-backdrop" onclick="window.location.href='{{ url_for('main.inventory', brand=material.brand, material_id=material.material_id) }}'"></div>
+    <div class="return-dialog" style="position: relative; z-index: 1201;">
         <div class="modal-header">
             <h2>Edit material</h2>
             <a href="{{ url_for('main.inventory', brand=material.brand, material_id=material.material_id) }}" class="modal-close">×</a>

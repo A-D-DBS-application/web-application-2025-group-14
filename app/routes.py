@@ -698,9 +698,26 @@ def add_item():
             price_raw = request.form.get("price")
             price = float(price_raw.replace(",", ".")) if price_raw else None
             quantity = int(request.form["quantity"])
+            
+            # Validate price is not negative
+            if price is not None and price < 0:
+                flash("Price must be greater than or equal to 0.", "error")
+                if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                    return render_template("add_item_partial.html"), 400
+                return redirect(url_for("main.inventory"))
+            
+            # Validate quantity is not negative
+            if quantity < 0:
+                flash("Quantity must be positive.", "error")
+                if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                    return render_template("add_item_partial.html"), 400
+                return redirect(url_for("main.inventory"))
+                
         except (ValueError, TypeError):
             flash("Invalid number format for price or quantity.", "error")
-            return render_template("add_item.html", form_data=request.form)
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                return render_template("add_item_partial.html"), 400
+            return redirect(url_for("main.inventory"))
 
         # Material check
         material = Material.query.filter_by(
@@ -713,7 +730,9 @@ def add_item():
             try:
                 if not description:
                     flash("Description is required for a new material.", "error")
-                    return render_template("add_item.html", form_data=request.form)
+                    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                        return render_template("add_item_partial.html"), 400
+                    return redirect(url_for("main.inventory"))
                 material = Material(
                     company_name=company_name, brand=brand, material_type=material_type,
                     description=description, lifecycle=lifecycle, price=price,
@@ -722,7 +741,9 @@ def add_item():
                 db.session.flush()
             except ValueError as e:
                 flash(f"Error creating material: {e}", "error")
-                return render_template("add_item.html", form_data=request.form)
+                if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                    return render_template("add_item_partial.html"), 400
+                return redirect(url_for("main.inventory"))
         else:
             # Material exists. Update its properties from the form if the user changed them.
             try:
@@ -732,7 +753,9 @@ def add_item():
             except ValueError as e:
                 db.session.rollback()
                 flash(f"Error updating material: {e}", "error")
-                return render_template("add_item.html", form_data=request.form)
+                if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                    return render_template("add_item_partial.html"), 400
+                return redirect(url_for("main.inventory"))
 
         # --- Zone data ---
         zone_name = request.form["zone_name"].strip().upper()
@@ -768,7 +791,9 @@ def add_item():
             except ValueError as e:
                 db.session.rollback()
                 flash(f"Error updating item: {e}", "error")
-                return render_template("add_item.html", form_data=request.form)
+                if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                    return render_template("add_item_partial.html"), 400
+                return redirect(url_for("main.inventory"))
 
             return redirect(url_for("main.inventory", material_id=material.material_id))
 
@@ -783,7 +808,9 @@ def add_item():
         except ValueError as e:
             db.session.rollback()
             flash(f"Error creating item: {e}", "error")
-            return render_template("add_item.html", form_data=request.form)
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                return render_template("add_item_partial.html"), 400
+            return redirect(url_for("main.inventory"))
 
         flash("Item added successfully", "success")
         return redirect(url_for("main.inventory", material_id=material.material_id))
@@ -819,6 +846,9 @@ def use_item(item_id: int):
 
         if not user_exists:
             error_msg = f"This user '{username}' does not exist in your organization."
+            # Check if this is an AJAX request (for modal)
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                return render_template("use_item_partial.html", item=item, available=available, error=error_msg)
             return render_template(
                 "use_item.html",
                 item=item,
@@ -832,6 +862,9 @@ def use_item(item_id: int):
                 f"Not enough stock available. Available: {available}, "
                 f"requested: {quantity}."
             )
+            # Check if this is an AJAX request (for modal)
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                return render_template("use_item_partial.html", item=item, available=available, error=error_msg)
             return render_template("use_item.html", item=item, available=available, error=error_msg)
 
         # --- Create reservation ---
@@ -845,6 +878,9 @@ def use_item(item_id: int):
             db.session.add(reservation)
         except ValueError as e:
             db.session.rollback()
+            # Check if this is an AJAX request (for modal)
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                return render_template("use_item_partial.html", item=item, available=available, error=str(e))
             return render_template("use_item.html", item=item, available=available, error=str(e))
 
         # --- Reduce real stock directly ---
@@ -862,6 +898,10 @@ def use_item(item_id: int):
         return redirect_back()
 
 
+    # Check if this is an AJAX request (for modal)
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return render_template("use_item_partial.html", item=item, available=available)
+    
     return render_template("use_item.html", item=item, available=available)
 
 
@@ -1116,6 +1156,8 @@ def edit_item(item_id: int):
             except Exception as e:
                 db.session.rollback()
                 flash(f"Error merging items: {e}", "error")
+                if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                    return render_template("edit_item_partial.html", item=item, zones=zones)
                 return render_template("edit_item.html", item=item, zones=zones)
 
         # If no duplicate, just update the item
@@ -1133,6 +1175,11 @@ def edit_item(item_id: int):
             )
         )
 
+    # GET request - return partial for modal (AJAX) or full page for direct access
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return render_template("edit_item_partial.html", item=item, zones=zones)
+    
+    # If accessed directly (not via AJAX), return full page
     return render_template("edit_item.html", item=item, zones=zones)
 
 
