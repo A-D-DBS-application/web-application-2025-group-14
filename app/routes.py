@@ -950,6 +950,9 @@ def edit_material(material_id: int):
 
     material = Material.query.get_or_404(material_id)
 
+    # Check if the material has any associated items to control UI elements.
+    has_items = Item.query.filter_by(material_id=material.material_id).first() is not None
+
     if request.method == "POST":
         new_brand = request.form["brand"]
         new_type = request.form["material_type"]
@@ -1017,8 +1020,11 @@ def edit_material(material_id: int):
                 return redirect(url_for("main.inventory", material_id=existing_material.material_id))
             except Exception as e:
                 db.session.rollback()
-                flash(f"Error merging materials: {e}", "error")
-                return render_template("edit_material.html", material=material)
+                error_msg = f"Error merging materials: {e}"
+                if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                    return render_template("edit_material_partial.html", material=material, has_items=has_items, error=error_msg), 400
+                flash(error_msg, "error")
+                return render_template("edit_material.html", material=material, has_items=has_items)
 
         try:
             material.brand = new_brand
@@ -1032,8 +1038,11 @@ def edit_material(material_id: int):
             flash("Material updated successfully.", "success")
         except ValueError as e:
             db.session.rollback()
-            flash(str(e), "error")
-            return render_template("edit_material.html", material=material)
+            error_msg = str(e)
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                return render_template("edit_material_partial.html", material=material, has_items=has_items, error=error_msg), 400
+            flash(error_msg, "error")
+            return render_template("edit_material.html", material=material, has_items=has_items)
 
         return redirect(
             url_for(
@@ -1044,9 +1053,9 @@ def edit_material(material_id: int):
         )
 
     if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-        return render_template("edit_material_partial.html", material=material)
+        return render_template("edit_material_partial.html", material=material, has_items=has_items)
 
-    return render_template("edit_material.html", material=material)
+    return render_template("edit_material.html", material=material, has_items=has_items)
 
 
 # ---------------------------------------------------------------------------
@@ -1141,18 +1150,27 @@ def edit_item(item_id: int):
                 return redirect(url_for("main.inventory", material_id=item.material_id))
             except Exception as e:
                 db.session.rollback()
-                flash(f"Error merging items: {e}", "error")
+                error_msg = f"Error merging items: {e}"
                 if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-                    return render_template("edit_item_partial.html", item=item, zones=zones)
-                return render_template("edit_item.html", item=item, zones=zones)
+                    return render_template("edit_item_partial.html", item=item, zones=zones, error=error_msg), 400
+                flash(error_msg, "error")
+                return render_template("edit_item.html", item=item, zones=zones, error=error_msg)
 
         # If no duplicate, just update the item
-        item.zone_id = zone.zone_id # zone_id is now set
-        item.purpose = request.form["purpose"]
-        item.packaging = request.form["packaging"]
-        item.comment = request.form.get("comment") or None
-        db.session.commit()
-        flash("Item updated successfully.", "success")
+        try:
+            item.zone_id = zone.zone_id # zone_id is now set
+            item.purpose = request.form["purpose"]
+            item.packaging = request.form["packaging"]
+            item.comment = request.form.get("comment") or None
+            db.session.commit()
+            flash("Item updated successfully.", "success")
+        except Exception as e:
+            db.session.rollback()
+            error_msg = f"Error updating item: {e}"
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                return render_template("edit_item_partial.html", item=item, zones=zones, error=error_msg), 400
+            flash(error_msg, "error")
+            return render_template("edit_item.html", item=item, zones=zones, error=error_msg)
 
         return redirect(
             url_for(

@@ -845,6 +845,158 @@ function initAddItemModalContent() {
     }
 }
 
+// Attach handlers for the edit material modal
+function initEditMaterialModalContent() {
+    // Add a style tag for the autofill class
+    if (!document.head.querySelector('[data-autofill-style]')) {
+        const style = document.createElement('style');
+        style.setAttribute('data-autofill-style', 'true');
+        style.innerHTML = `.autofilled { background-color: #f2f2f2 !important; }`;
+        document.head.appendChild(style);
+    }
+
+    const form = document.getElementById('edit-material-form');
+    if (!form) return;
+
+    const materialId = form.dataset.materialId;
+    if (!materialId) return;
+
+    // --- AUTO-FILL MATERIAL DETAILS ---
+    const brandInput = form.querySelector('input[name="brand"]');
+    const typeInput = form.querySelector('input[name="material_type"]');
+    const descInput = form.querySelector('textarea[name="description"]');
+    const priceInput = form.querySelector('input[name="price"]');
+    const lifecycleInput = form.querySelector('input[name="lifecycle"]');
+
+    const autofillElements = [descInput, priceInput, lifecycleInput];
+
+    function setAutofilled(element, value) {
+        if (element.value !== value) { element.value = value; }
+        element.classList.add('autofilled');
+        element.addEventListener('input', function onFirstInput() {
+            element.classList.remove('autofilled');
+            element.removeEventListener('input', onFirstInput);
+        }, { once: true });
+    }
+
+    function clearAutofilled(elements) {
+        elements.forEach(el => {
+            if (el.classList.contains('autofilled')) {
+                el.value = '';
+                el.classList.remove('autofilled');
+            }
+        });
+    }
+
+    async function fetchMaterialDetails() {
+        const brand = brandInput.value.trim();
+        const type = typeInput.value.trim();
+        
+        if (!brand || !type) { clearAutofilled(autofillElements); return; }
+
+        try {
+            const params = new URLSearchParams({ brand, type, exclude_id: materialId });
+            const response = await fetch(`/material_details?${params.toString()}`);
+            if (!response.ok) { clearAutofilled(autofillElements); return; }
+            const data = await response.json();
+            if (data && data.description) {
+                setAutofilled(descInput, data.description || '');
+                setAutofilled(priceInput, data.price || '');
+                setAutofilled(lifecycleInput, data.lifecycle || '');
+            } else { clearAutofilled(autofillElements); }
+        } catch (error) {
+            console.error('Error fetching material details:', error);
+            clearAutofilled(autofillElements);
+        }
+    }
+
+    brandInput.addEventListener('input', fetchMaterialDetails);
+    typeInput.addEventListener('input', fetchMaterialDetails);
+}
+
+// Attach handlers for the edit item modal
+function initEditItemModalContent() {
+    // Add a style tag for the autofill class
+    if (!document.head.querySelector('[data-autofill-style]')) {
+        const style = document.createElement('style');
+        style.setAttribute('data-autofill-style', 'true');
+        style.innerHTML = `.autofilled { background-color: #f2f2f2 !important; }`;
+        document.head.appendChild(style);
+    }
+
+    const form = document.getElementById('edit-item-form');
+    if (!form) return;
+
+    const itemId = form.dataset.itemId;
+    const brand = form.dataset.materialBrand;
+    const type = form.dataset.materialType;
+
+    if (!itemId || !brand || !type) return;
+
+    const zoneInput = form.querySelector('#zone_name');
+    const purposeInput = form.querySelector('select[name="purpose"]');
+    const packagingInput = form.querySelector('select[name="packaging"]');
+    const commentInput = form.querySelector('input[name="comment"]');
+
+    if (!zoneInput || !purposeInput || !packagingInput || !commentInput) return;
+    
+    const autofillElements = [commentInput];
+
+    function setAutofilled(element, value) {
+        if (element.value !== value) {
+            element.value = value;
+        }
+        element.classList.add('autofilled');
+        
+        element.addEventListener('input', function onFirstInput() {
+            element.classList.remove('autofilled');
+            element.removeEventListener('input', onFirstInput);
+        }, { once: true });
+    }
+
+    function clearAutofilled(elements) {
+        elements.forEach(el => {
+            if (el.classList.contains('autofilled')) {
+                el.value = '';
+                el.classList.remove('autofilled');
+            }
+        });
+    }
+
+    async function fetchItemDetails() {
+        const zone = zoneInput.value.trim();
+        const purpose = purposeInput.value;
+        const packaging = packagingInput.value;
+
+        if (!zone || !purpose || !packaging) {
+            clearAutofilled(autofillElements);
+            return;
+        }
+
+        const params = new URLSearchParams({ brand, type, zone, purpose, packaging, exclude_id: itemId });
+        try {
+            const response = await fetch(`/item_details?${params.toString()}`);
+            if (!response.ok) {
+                clearAutofilled(autofillElements);
+                return;
+            }
+            const data = await response.json();
+            if (data && data.comment) {
+                setAutofilled(commentInput, data.comment);
+            } else {
+                clearAutofilled(autofillElements);
+            }
+        } catch (error) {
+            console.error('Error fetching item details:', error);
+            clearAutofilled(autofillElements);
+        }
+    }
+
+    zoneInput.addEventListener('input', fetchItemDetails);
+    purposeInput.addEventListener('change', fetchItemDetails);
+    packagingInput.addEventListener('change', fetchItemDetails);
+}
+
 // Wanneer men op het icoontje klikt
 document.addEventListener("DOMContentLoaded", () => {
 
@@ -872,12 +1024,15 @@ document.addEventListener("DOMContentLoaded", () => {
             const response = await fetch(form.action, {
                 method: 'POST',
                 body: new FormData(form),
-                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                redirect: 'manual' // Prevent fetch from following redirects automatically
             });
 
-            // If server responds with a redirect, follow it.
-            if (response.redirected) {
-                window.location.href = response.url;
+            // If the response type is 'opaqueredirect', it means the server sent a 3xx redirect.
+            // This is the success case (e.g., item added, redirecting back to inventory).
+            // We must reload the page to follow the redirect and see the flash message.
+            if (response.type === 'opaqueredirect') {
+                window.location.reload();
                 return;
             }
 
@@ -885,10 +1040,19 @@ document.addEventListener("DOMContentLoaded", () => {
             // it will return the re-rendered partial. We replace the content.
             if (!response.ok) {
                 modalBody.innerHTML = await response.text();
+                // Re-run initialization scripts for the new content
+                const modal = modalBody.closest('.return-modal');
+                if (modal) {
+                    if (modal.id === 'addItemModal') initAddItemModalContent();
+                    else if (modal.id === 'editItemModal') initEditItemModalContent();
+                    else if (modal.id === 'editMaterialModal') initEditMaterialModalContent();
+                    else if (modal.id === 'returnModal') initReturnModalContent();
+                    // reserveItemModal has its own simple script inside the partial, which is fine.
+                }
                 return;
             }
 
-            // For any other success case, a page reload is the safest default.
+            // For any other 2xx success case that is not a redirect, reload as a fallback.
             window.location.reload();
         } catch (error) {
             console.error("Error submitting modal form:", error);
@@ -1021,6 +1185,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
                 const html = await response.text();
                 container.innerHTML = html;
+                initEditItemModalContent();
             } catch (error) {
                 console.error("Error loading edit item form:", error);
                 container.innerHTML = '<div class="modal-loading" style="color: #dc2626;"><span>Error loading form. Please try again.</span></div>';
@@ -1050,6 +1215,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 });
                 const html = await response.text();
                 container.innerHTML = html;
+                initEditMaterialModalContent();
             } catch (error) {
                 console.error("Error loading edit material form:", error);
                 container.innerHTML = '<div class="modal-loading" style="color: #dc2626;"><span>Error loading form. Please try again.</span></div>';

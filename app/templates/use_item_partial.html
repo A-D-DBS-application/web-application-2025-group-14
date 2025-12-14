@@ -1,10 +1,12 @@
 {# Partial used inside the reserve item modal (loaded via fetch) #}
 <div class="reserve-item-content">
-    <p style="margin-bottom: 16px; color: #6b7280;">
+    <p style="margin-bottom: 16px; color: #64748b;">
         <strong style="color: #1e293b;">{{ item.material.brand }} – {{ item.material.material_type }}</strong><br>
         {{ item.material.description }}<br>
-        <span style="color: #64748b;">Zone {{ item.zone.zone_name }}</span><br>
-        <strong style="color: #1e293b;">Available:</strong> {{ available }}
+        <span style="color: #2b2d2f;">Zone {{ item.zone.zone_name }}</span><br>
+        <span {% if available == 0 %}style="color: #991b1b;"{% endif %}>
+            <strong {% if available == 0 %}style="color: inherit;"{% else %}style="color: #1e293b;"{% endif %}>Available:</strong> {{ available }}
+        </span>
     </p>
 
     {% if error %}
