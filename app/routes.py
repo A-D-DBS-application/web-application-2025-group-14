@@ -602,6 +602,7 @@ def brand_suggest():
         .filter(Material.company_name == company_name)
         .filter(Material.brand.ilike(f"%{q}%"))
         .distinct()
+        .join(Item)
         .limit(5)
         .all()
     )
