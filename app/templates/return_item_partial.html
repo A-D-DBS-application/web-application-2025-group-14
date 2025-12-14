@@ -96,10 +96,15 @@
             </div>
         </section>
 
+        {% if error %}
+        <div class="flash-message flash-error" style="margin-top: 10px; margin-bottom: 0; border-radius: 8px;">
+            {{ error }}
+        </div>
+        {% endif %}
+
         <div class="return-actions">
             <button type="button" class="btn-secondary" onclick="closeReturnModal()">Cancel</button>
             <button type="submit" class="btn-primary" id="apply-button">Apply changes</button>
         </div>
     </form>
 </div>
-

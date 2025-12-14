@@ -1185,23 +1185,37 @@ def return_item(reservation_id):
 
     # --- POST: Verwerk de gekozen actie ---
     if request.method == "POST":
+        error_msg = None
         # Haal hoeveelheden op voor elke mogelijke actie
         try:
             qty_stock = int(request.form.get("qty_return_to_stock") or 0)
             qty_discard = int(request.form.get("qty_discard") or 0)
             qty_changed = int(request.form.get("qty_mark_changed") or 0)
         except (ValueError, TypeError):
-            flash("Invalid quantity entered.", "error")
-            return redirect(url_for(".return_item", reservation_id=reservation_id))
+            error_msg = "Invalid quantity entered."
+            qty_stock, qty_discard, qty_changed = 0, 0, 0
 
         # Validatie
         total_qty_processed = qty_stock + qty_discard + qty_changed
-        if total_qty_processed <= 0:
-            flash("Specify a quantity for at least one action.", "error")
-            return redirect(url_for(".return_item", reservation_id=reservation_id))
+        if not error_msg:
+            if total_qty_processed <= 0:
+                error_msg = "Specify a quantity for at least one action."
+            elif total_qty_processed > reservation.quantity:
+                error_msg = f"Total quantity ({total_qty_processed}) is more than reserved ({reservation.quantity})."
+            
+            if qty_changed > 0:
+                purpose = request.form.get("purpose")
+                packaging = request.form.get("packaging")
+                zone_name = request.form.get("zone_name", "").strip().upper()
+                if not all([purpose, packaging, zone_name]):
+                    error_msg = "Voor 'markeer als gewijzigd' zijn zone, doel en verpakking vereist."
 
-        if total_qty_processed > reservation.quantity:
-            flash(f"Total quantity ({total_qty_processed}) is more than reserved ({reservation.quantity}).", "error")
+        if error_msg:
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                company_name = item.material.company_name
+                zones = Zone.query.filter_by(company_name=company_name).order_by(Zone.zone_name).all()
+                return render_template("return_item_partial.html", reservation=reservation, item=item, zones=zones, error=error_msg), 400
+            flash(error_msg, "error")
             return redirect(url_for(".return_item", reservation_id=reservation_id))
 
         # --- Verwerk actie: Terug naar stock ---
@@ -1222,11 +1236,6 @@ def return_item(reservation_id):
             purpose = request.form.get("purpose")
             packaging = request.form.get("packaging")
             zone_name = request.form.get("zone_name", "").strip().upper()
-
-            # Deze velden zijn vereist als qty_changed > 0
-            if not all([purpose, packaging, zone_name]):
-                flash("Voor 'markeer als gewijzigd' zijn zone, doel en verpakking vereist.", "error")
-                return redirect(url_for(".return_item", reservation_id=reservation_id))
 
             company_name = item.material.company_name
             zone = Zone.query.filter_by(zone_name=zone_name, company_name=company_name).first()
