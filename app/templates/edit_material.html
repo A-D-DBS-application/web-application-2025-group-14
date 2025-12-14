@@ -55,7 +55,7 @@
                 <label>
                     Price (€)
                     <input type="number" step="0.01" name="price"
-                           value="{{ material.price if material.price is not none }}">
+                           value="{{ material.price if material.price is not none }}" min="0">
                 </label>
 
                 <div class="filter-actions" style="display: flex; align-items: center; gap: 8px;">
@@ -86,7 +86,7 @@
                             Delete
                         </button>
                     </form>
-                    <span style="font-size: 13px; color: #6b7280;">Delete this material and all its items.</span>
+                    <span style="font-size: 13px; color: #6b7280;">Delete this material.</span>
                 </div>
             </div>
         </div>
@@ -182,14 +182,16 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!form) return;
     
     // Set custom English validation messages for all required fields
-    const requiredFields = form.querySelectorAll('input[required], textarea[required]');
+    const fields = form.querySelectorAll('input[required], textarea[required], input[name="price"]');
     
-    requiredFields.forEach(function(field) {
+    fields.forEach(function(field) {
         // Set custom message
         field.addEventListener('invalid', function(e) {
             e.preventDefault();
             if (this.validity.valueMissing) {
                 this.setCustomValidity('Please fill in this field.');
+            } else if (this.validity.rangeUnderflow) {
+                this.setCustomValidity('Value must be greater than or equal to 0.');
             } else {
                 this.setCustomValidity('');
             }

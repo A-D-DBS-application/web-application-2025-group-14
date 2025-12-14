@@ -222,6 +222,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     closeAddItemModal();
                 } else if (openModal.id === 'editItemModal' && typeof closeEditItemModal === 'function') {
                     closeEditItemModal();
+                } else if (openModal.id === 'editMaterialModal' && typeof closeEditMaterialModal === 'function') {
+                    closeEditMaterialModal();
                 } else if (openModal.id === 'reserveItemModal' && typeof closeReserveItemModal === 'function') {
                     closeReserveItemModal();
                 } else if (openModal.id === 'returnModal' && typeof closeReturnModal === 'function') {

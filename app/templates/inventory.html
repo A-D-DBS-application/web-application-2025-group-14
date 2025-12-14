@@ -235,7 +235,7 @@
                 </div>
 
                 {# Quantity / reserved block (keep as you had it) #}
-                <div class="item-meta-row">
+                <div class="item-meta-row item-meta-row-main">
                     <span class="quantity-block">
                         <strong>Quantity:</strong>
                         <form class="quantity-form"
@@ -247,7 +247,9 @@
                             <input type="number"
                                 name="quantity"
                                 min="0"
-                                value="{{ item.quantity }}">
+                                value="{{ item.quantity }}"
+                                data-original-value="{{ item.quantity }}">
+                            <button type="button" class="quantity-cancel" title="Cancel changes" style="display: none;">×</button>
                             <button type="submit" class="quantity-save">Save</button>
                         </form>
                     </span>
@@ -588,32 +590,80 @@ function initReturnModalContent() {
     const qtyChangedInput = container.querySelector("#qty_mark_changed");
     const applyBtn = container.querySelector("#apply-button");
 
-    if (!totalReservedEl || !remainingQtyEl) return;
+    if (totalReservedEl && remainingQtyEl) {
+        const totalReserved = parseInt(totalReservedEl.textContent, 10) || 0;
 
-    const totalReserved = parseInt(totalReservedEl.textContent, 10) || 0;
+        function updateTotal() {
+            let totalProcessed = 0;
+            qtyInputs.forEach(input => {
+                const val = parseInt(input.value, 10);
+                totalProcessed += isNaN(val) ? 0 : val;
+            });
+            const remaining = totalReserved - totalProcessed;
+            remainingQtyEl.textContent = remaining;
+            remainingQtyEl.style.color = remaining < 0 ? "red" : "inherit";
+            if (applyBtn) applyBtn.disabled = remaining < 0;
+        }
 
-    function updateTotal() {
-        let totalProcessed = 0;
-        qtyInputs.forEach(input => {
-            const val = parseInt(input.value, 10);
-            totalProcessed += isNaN(val) ? 0 : val;
-        });
-        const remaining = totalReserved - totalProcessed;
-        remainingQtyEl.textContent = remaining;
-        remainingQtyEl.style.color = remaining < 0 ? "red" : "inherit";
-        if (applyBtn) applyBtn.disabled = remaining < 0;
+        qtyInputs.forEach(input => input.addEventListener("input", updateTotal));
+        updateTotal(); // Initial call
     }
 
-    qtyInputs.forEach(input => input.addEventListener("input", updateTotal));
+    // --- VALIDATION ---
+    const form = container.querySelector('form');
+    if (!form) return;
 
+    // --- DYNAMIC REQUIRED FIELDS & VALIDATION ---
     if (qtyChangedInput && changedFields) {
+        // Correctly select the inputs inside the 'changed' section
+        const newZoneInput = changedFields.querySelector('input[name="zone_name"]');
+        const newPurposeInput = changedFields.querySelector('select[name="purpose"]');
+        const newPackagingInput = changedFields.querySelector('select[name="packaging"]');
+
         qtyChangedInput.addEventListener("input", () => {
             const val = parseInt(qtyChangedInput.value, 10) || 0;
-            changedFields.style.display = val > 0 ? "block" : "none";
+            const isRequired = val > 0;
+
+            changedFields.style.display = isRequired ? "block" : "none";
+
+            // Set required attribute dynamically based on the quantity
+            if (newZoneInput) newZoneInput.required = isRequired;
+            if (newPurposeInput) newPurposeInput.required = isRequired;
+            if (newPackagingInput) newPackagingInput.required = isRequired;
         });
     }
 
-    updateTotal();
+    // Generic validation logic for the whole form
+    const fieldsToValidate = form.querySelectorAll('input, select, textarea');
+
+    fieldsToValidate.forEach(function(field) {
+        field.addEventListener('invalid', function(e) {
+            e.preventDefault();
+            if (this.validity.valueMissing) {
+                this.setCustomValidity('Please fill in this field.');
+            } else if (this.validity.rangeUnderflow) {
+                this.setCustomValidity('Value must be greater than or equal to 0.');
+            } else {
+                this.setCustomValidity('');
+            }
+            this.reportValidity();
+        });
+
+        field.addEventListener('input', function() {
+            this.setCustomValidity('');
+        });
+    });
+
+    form.addEventListener('submit', function(e) {
+        if (!form.checkValidity()) {
+            e.preventDefault();
+            const firstInvalid = form.querySelector(':invalid');
+            if (firstInvalid) {
+                firstInvalid.focus();
+                firstInvalid.reportValidity();
+            }
+        }
+    });
 }
 
 // Attach handlers for the add item modal (runs after the partial is injected)
@@ -639,8 +689,17 @@ function initAddItemModalContent() {
     const packagingInput = document.getElementById('packaging');
 
     // Check if the form elements are present
+    if (descInput) {
+        descInput.required = true;
+    }
+
     if (!brandInput || !typeInput) {
         return;
+    }
+
+    // Set min attribute for price validation
+    if (priceInput) {
+        priceInput.setAttribute('min', '0');
     }
 
     // --- BRAND SUGGESTIONS ---
@@ -732,6 +791,41 @@ function initAddItemModalContent() {
     zoneInput.addEventListener('input', fetchItemDetails);
     purposeInput.addEventListener('change', fetchItemDetails);
     packagingInput.addEventListener('change', fetchItemDetails);
+
+    // --- VALIDATION ---
+    const form = document.querySelector('#addItemModalContent form');
+    if (form) {
+        const fields = form.querySelectorAll('input[required], textarea[required], input[name="price"], input[name="quantity"]');
+
+        fields.forEach(function(field) {
+            field.addEventListener('invalid', function(e) {
+                e.preventDefault();
+                if (this.validity.valueMissing) {
+                    this.setCustomValidity('Please fill in this field.');
+                } else if (this.validity.rangeUnderflow) {
+                    this.setCustomValidity('Value must be greater than or equal to 0.');
+                } else {
+                    this.setCustomValidity('');
+                }
+                this.reportValidity();
+            });
+
+            field.addEventListener('input', function() {
+                this.setCustomValidity('');
+            });
+        });
+
+        form.addEventListener('submit', function(e) {
+            if (!form.checkValidity()) {
+                e.preventDefault();
+                const firstInvalid = form.querySelector(':invalid');
+                if (firstInvalid) {
+                    firstInvalid.focus();
+                    firstInvalid.reportValidity();
+                }
+            }
+        });
+    }
 }
 
 // Wanneer men op het icoontje klikt
@@ -939,6 +1033,33 @@ document.addEventListener("DOMContentLoaded", function () {
             row.style.display = row.innerText.toLowerCase().includes(value)
                 ? ""
                 : "none";
+        });
+    });
+
+    // --- INLINE QUANTITY FORM LOGIC ---
+    document.querySelectorAll('.quantity-form').forEach(form => {
+        const input = form.querySelector('input[name="quantity"]');
+        const cancelBtn = form.querySelector('.quantity-cancel');
+
+        if (!input || !cancelBtn) return;
+
+        const originalValue = input.dataset.originalValue;
+
+        input.addEventListener('input', () => {
+            // Toon of verberg de annuleer-knop op basis van de wijziging
+            if (input.value !== originalValue) {
+                cancelBtn.style.display = 'inline-block';
+            } else {
+                cancelBtn.style.display = 'none';
+            }
+        });
+
+        cancelBtn.addEventListener('click', (e) => {
+            e.preventDefault(); // Voorkom dat het formulier wordt ingediend
+
+            // Zet de waarde terug en verberg de annuleer-knop
+            input.value = originalValue;
+            cancelBtn.style.display = 'none';
         });
     });
 });

@@ -887,6 +887,7 @@ def use_item(item_id: int):
         # --- Reduce real stock directly ---
         item.quantity -= quantity
         db.session.commit()
+        flash(f"{quantity} item(s) reserved successfully.", "success")
 
         # 👉 reserve-event loggen
         username_pk = session.get("username_pk") or username
@@ -929,11 +930,13 @@ def update_quantity(item_id: int):
         # safe to delete if nothing reserved and qty set to 0
         db.session.delete(item)
         db.session.commit()
+        flash("Item deleted as quantity was set to 0.", "info")
         return redirect(url_for("main.inventory", brand=brand, material_id=material_id))
 
     # otherwise update quantity (cannot go negative)
     item.quantity = new_quantity
     db.session.commit()
+    flash("Quantity updated successfully.", "success")
     return redirect(url_for("main.inventory", brand=brand, material_id=material_id))
 
 
@@ -1048,6 +1051,7 @@ def edit_material(material_id: int):
             price = float(price_raw.replace(",", ".")) if price_raw else None
             material.price = price
             db.session.commit()
+            flash("Material updated successfully.", "success")
         except ValueError as e:
             db.session.rollback()
             flash(str(e), "error")
@@ -1167,6 +1171,7 @@ def edit_item(item_id: int):
         item.packaging = request.form["packaging"]
         item.comment = request.form.get("comment") or None
         db.session.commit()
+        flash("Item updated successfully.", "success")
 
         return redirect(
             url_for(
