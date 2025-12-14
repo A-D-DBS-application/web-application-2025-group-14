@@ -79,8 +79,14 @@
             </h1>
 
             {% if active_material %}
-                <a href="{{ url_for('main.edit_material',
-                                    material_id=active_material.material_id) }}"
+                <a href="{{ url_for('main.edit_material', material_id=active_material.material_id,
+                                    brand=active_brand,
+                                    material_id_for_return=active_material_id,
+                                    q_brand=q_brand, q_type=q_type,
+                                    q_desc=q_desc, q_zone=q_zone,
+                                    q_lifecycle=q_lifecycle,
+                                    filter_purpose=filter_purpose,
+                                    filter_packaging=filter_packaging) }}"
                    class="icon-small icon-small-outline"
                    title="Edit material">
                     ✎
@@ -288,18 +294,22 @@
             </div>
 
             <div class="item-actions">
-                <form action="{{ url_for('main.use_item',
-                         item_id=item.item_id,
-                         brand=active_brand,
-                         material_id=active_material_id) }}"
-                    method="get">
-                    <button type="submit" class="btn-primary">Reserve</button>
-                </form>
-
+                <a class="btn-primary"
+                   href="{{ url_for('main.use_item', item_id=item.item_id,
+                                     brand=active_brand,
+                                     material_id=active_material_id,
+                                     q_brand=q_brand, q_type=q_type,
+                                     q_desc=q_desc, q_zone=q_zone,
+                                     q_lifecycle=q_lifecycle,
+                                     filter_purpose=filter_purpose, filter_packaging=filter_packaging) }}">Reserve</a>
+                
                 <div class="item-actions-secondary">
-                    <a href="{{ url_for('main.edit_item', item_id=item.item_id) }}"
-                       class="icon-small"
-                       title="Edit item">✎</a>
+                    <a href="{{ url_for('main.edit_item', item_id=item.item_id,
+                                       brand=active_brand, material_id=active_material_id,
+                                       q_brand=q_brand, q_type=q_type, q_desc=q_desc, q_zone=q_zone,
+                                       q_lifecycle=q_lifecycle, filter_purpose=filter_purpose,
+                                       filter_packaging=filter_packaging) }}"
+                       class="icon-small" title="Edit item">✎</a>
                 </div>
             </div>
         </article>
@@ -361,6 +371,14 @@
         </header>
 
         <form method="get" class="filter-form">
+            {# Preserve the active brand and material selection when applying filters #}
+            {% if active_brand %}
+                <input type="hidden" name="brand" value="{{ active_brand }}">
+            {% endif %}
+            {% if active_material_id %}
+                <input type="hidden" name="material_id" value="{{ active_material_id }}">
+            {% endif %}
+
             <label>
                 Type
                 <input type="text" name="q_type" placeholder="Search type..."
