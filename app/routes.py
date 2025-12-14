@@ -79,7 +79,8 @@ def login():
         username = request.form.get("username")
 
         # gebruiker opzoeken
-        user = User.query.filter_by(username=username).first()
+        # Niet-hoofdlettergevoelige zoekopdracht
+        user = User.query.filter(func.lower(User.username) == func.lower(username)).first()
 
         # user bestaat niet of wachtwoord fout (plain text vergelijking)
         if not user:
