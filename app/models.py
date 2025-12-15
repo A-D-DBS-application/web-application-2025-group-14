@@ -96,6 +96,21 @@ class Item(db.Model):
 
     reservations = db.relationship('Reservation', backref='item', lazy=True)
 
+    # Hidden marker to track changed items (zero-width spaces - invisible)
+    _CHANGED_MARKER = "\u200B\u200B\u200B"
+
+    @property
+    def is_changed(self):
+        """Check if item was moved from reservation with changed properties."""
+        return self.comment and self._CHANGED_MARKER in self.comment
+    
+    @property
+    def display_comment(self):
+        """Get comment without the hidden changed marker."""
+        if self.comment and self._CHANGED_MARKER in self.comment:
+            return self.comment.replace(self._CHANGED_MARKER, "")
+        return self.comment
+
     @validates('quantity')
     def validate_quantity(self, key, quantity):
         if quantity is not None and quantity < 0:

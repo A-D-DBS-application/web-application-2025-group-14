@@ -222,8 +222,8 @@
                 {% endif %}
 
 
-                    {% if item.item_id in recently_changed_items %}
-                    <span class="chip chip-changed" title="Recently changed">
+                    {% if item.is_changed %}
+                    <span class="chip chip-changed" title="Changed">
                         Changed
                     </span>
                     {% endif %}
@@ -291,7 +291,7 @@
                     </div>
 
                     <div class="item-meta-row">
-                        <span><strong>Comment:</strong> {{ item.comment or "No comment" }}</span>
+                        <span><strong>Comment:</strong> {{ item.display_comment or "No comment" }}</span>
                     </div>
                 </div>
             </div>

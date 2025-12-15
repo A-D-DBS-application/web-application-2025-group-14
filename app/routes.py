@@ -441,8 +441,7 @@ def inventory():
 
     item_count = len(items)
 
-    # Items that were just changed (one redirect ago)
-    recently_changed_items = session.pop("recently_changed_items", [])
+    # No longer using session-based tracking - items are marked with is_changed in database
 
     # --- EVENT LOGGING: only log when the user manually clicked a material (sidebar) ---
     username_pk = session.get("username_pk") or session.get("username")
@@ -583,7 +582,6 @@ def inventory():
         search_brand =search_brand,
 
         page_title=page_title,
-        recently_changed_items=recently_changed_items,
     )
 
 # ---------------------------------------------------------------------------
@@ -681,7 +679,8 @@ def item_details():
     item = query.first()
     
     if item and item.comment:
-        return jsonify({"comment": item.comment})
+        # Return comment without the hidden marker for display
+        return jsonify({"comment": item.display_comment})
     
     return jsonify({})
 
@@ -1144,8 +1143,20 @@ def edit_item(item_id: int):
             # Merge into existing item
             try:
                 existing_item.quantity += item.quantity
-                # Overwrite comment of the target item
-                existing_item.comment = request.form.get("comment") or None
+                # Preserve changed marker if item was changed, otherwise use new comment
+                new_comment = request.form.get("comment") or None
+                was_changed = item.is_changed
+                if was_changed and new_comment:
+                    # Preserve marker in new comment
+                    if Item._CHANGED_MARKER not in new_comment:
+                        existing_item.comment = new_comment + Item._CHANGED_MARKER
+                    else:
+                        existing_item.comment = new_comment
+                elif was_changed and not new_comment:
+                    # Keep marker even if comment is empty
+                    existing_item.comment = Item._CHANGED_MARKER
+                else:
+                    existing_item.comment = new_comment
 
                 # Move reservations to the target item
                 for r in list(item.reservations):
@@ -1171,7 +1182,20 @@ def edit_item(item_id: int):
             item.zone_id = zone.zone_id # zone_id is now set
             item.purpose = request.form["purpose"]
             item.packaging = request.form["packaging"]
-            item.comment = request.form.get("comment") or None
+            # Preserve changed marker if item was changed
+            new_comment = request.form.get("comment") or None
+            was_changed = item.is_changed
+            if was_changed and new_comment:
+                # Preserve marker in new comment
+                if Item._CHANGED_MARKER not in new_comment:
+                    item.comment = new_comment + Item._CHANGED_MARKER
+                else:
+                    item.comment = new_comment
+            elif was_changed and not new_comment:
+                # Keep marker even if comment is empty
+                item.comment = Item._CHANGED_MARKER
+            else:
+                item.comment = new_comment
             db.session.commit()
             flash("Item updated successfully.", "success")
         except Exception as e:
@@ -1256,8 +1280,7 @@ def return_item(reservation_id):
             # Items worden niet teruggestort in de voorraad, maar gewoon afgeschreven.
             flash(f"{qty_discard} item(s) discarded.", "success")
 
-        # Collect item ids that should be highlighted as "recently changed"
-        recently_changed_ids = session.get("recently_changed_items", [])
+        # No longer using session-based tracking - using database field instead
 
         # --- Verwerk actie: Markeer als gewijzigd ---
         if qty_changed > 0:
@@ -1282,26 +1305,34 @@ def return_item(reservation_id):
 
             if existing_item:
                 existing_item.quantity += qty_changed
+                # Add marker to comment if not already present
+                if existing_item.comment and Item._CHANGED_MARKER not in existing_item.comment:
+                    existing_item.comment = existing_item.comment + Item._CHANGED_MARKER
+                elif not existing_item.comment:
+                    existing_item.comment = Item._CHANGED_MARKER
                 target_item_id = existing_item.item_id
             else:
+                # Preserve the original comment if it exists, otherwise leave it None
+                original_comment = item.comment
+                # Add marker to indicate this is a changed item
+                if original_comment:
+                    new_comment = original_comment + Item._CHANGED_MARKER
+                else:
+                    new_comment = Item._CHANGED_MARKER
+                    
                 new_item = Item(
                     material_id=item.material_id,
                     zone_id=zone.zone_id,
                     purpose=purpose,
                     packaging=packaging,
                     quantity=qty_changed,
-                    comment=f"Item moved from reservation by {reservation.username}"
+                    comment=new_comment  # Keep original comment + hidden marker
                 )
                 db.session.add(new_item)
                 db.session.flush()  # ensure item_id is available
                 target_item_id = new_item.item_id
 
             flash(f"{qty_changed} item(s) marked as changed.", "success")
-
-            # Keep track for a single follow-up render of the inventory page
-            if target_item_id:
-                if target_item_id not in recently_changed_ids:
-                    recently_changed_ids.append(target_item_id)
 
         # --- Werk de oorspronkelijke reservatie bij ---
         new_res_quantity = reservation.quantity - total_qty_processed
@@ -1321,8 +1352,6 @@ def return_item(reservation_id):
         # Commit alle wijzigingen in één transactie
         db.session.commit()
 
-        # Persist the list for the next request and highlight those cards
-        session["recently_changed_items"] = recently_changed_ids
         return redirect(url_for("main.inventory"))
 
     # --- GET: Toon de return-pagina ---
