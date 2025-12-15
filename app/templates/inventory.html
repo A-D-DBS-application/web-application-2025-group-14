@@ -811,22 +811,25 @@ function initAddItemModalContent() {
 
     // --- CONDITIONAL REQUIRED FIELDS ---
     // Makes item-specific fields (zone, purpose, packaging) optional if quantity is 0.
-    if (quantityInput && zoneInput && purposeInput && packagingInput && commentInput) {
-        const itemFields = [zoneInput, purposeInput, packagingInput, commentInput];
-        const itemFieldGroups = itemFields.map(el => el ? el.closest('.form-group') : null);
+    if (quantityInput && zoneInput && purposeInput && packagingInput && commentInput) { // Makes item-specific fields optional and visually disabled if quantity is 0.
+        const requiredFields = [zoneInput, purposeInput, packagingInput];
+        const allConditionalFields = [zoneInput, purposeInput, packagingInput, commentInput];
+        const fieldGroups = allConditionalFields.map(el => el ? el.closest('.form-group') : null);
 
         const updateItemFieldsState = () => {
             const isZero = quantityInput.value === '0';
 
-            itemFieldGroups.forEach(group => {
+            // Visually fade and disable all conditional fields
+            fieldGroups.forEach(group => {
                 if (group) group.style.opacity = isZero ? '0.5' : '1';
             });
+            allConditionalFields.forEach(field => {
+                if (field) field.disabled = isZero;
+            });
 
-            itemFields.forEach(field => {
-                if (field) {
-                    field.required = !isZero;
-                    field.disabled = isZero;
-                }
+            // Toggle the 'required' attribute only for the required fields
+            requiredFields.forEach(field => {
+                if (field) field.required = !isZero;
             });
         };
 
