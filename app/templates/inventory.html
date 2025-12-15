@@ -703,6 +703,7 @@ function initAddItemModalContent() {
     const zoneInput = document.getElementById('zone_name');
     const purposeInput = document.getElementById('purpose');
     const packagingInput = document.getElementById('packaging');
+    const quantityInput = document.getElementById('quantity');
 
     // Check if the form elements are present
     if (descInput) {
@@ -808,32 +809,88 @@ function initAddItemModalContent() {
     purposeInput.addEventListener('change', fetchItemDetails);
     packagingInput.addEventListener('change', fetchItemDetails);
 
-    // --- VALIDATION ---
-    const form = document.querySelector('#addItemModalContent form');
-    if (form) {
-        const fields = form.querySelectorAll('input[required], textarea[required], input[name="price"], input[name="quantity"]');
+    // --- CONDITIONAL REQUIRED FIELDS ---
+    // Makes item-specific fields (zone, purpose, packaging) optional if quantity is 0.
+    if (quantityInput && zoneInput && purposeInput && packagingInput && commentInput) {
+        const itemFields = [zoneInput, purposeInput, packagingInput, commentInput];
+        const itemFieldGroups = itemFields.map(el => el ? el.closest('.form-group') : null);
 
-        fields.forEach(function(field) {
-            field.addEventListener('invalid', function(e) {
-                e.preventDefault();
-                if (this.validity.valueMissing) {
-                    this.setCustomValidity('Please fill in this field.');
-                } else if (this.validity.rangeUnderflow) {
-                    this.setCustomValidity('Value must be greater than or equal to 0.');
-                } else {
-                    this.setCustomValidity('');
-                }
-                this.reportValidity();
+        const updateItemFieldsState = () => {
+            const isZero = quantityInput.value === '0';
+
+            itemFieldGroups.forEach(group => {
+                if (group) group.style.opacity = isZero ? '0.5' : '1';
             });
 
+            itemFields.forEach(field => {
+                if (field) {
+                    field.required = !isZero;
+                    field.disabled = isZero;
+                }
+            });
+        };
+
+        quantityInput.addEventListener('input', updateItemFieldsState);
+        updateItemFieldsState(); // Set initial state on load
+    }
+
+    // --- VALIDATION ---
+    // Zorgt voor validatie van de velden in de juiste volgorde.
+    const form = document.querySelector('#addItemModalContent form');
+    if (form) {
+        // Dit deel stelt aangepaste validatieboodschappen in.
+        // Het toont de pop-up niet zelf.
+        const fieldsToValidate = form.querySelectorAll('input, select, textarea');
+        fieldsToValidate.forEach(function(field) {
+            field.addEventListener('invalid', function() {
+                if (this.validity.valueMissing) {
+                    if (this.tagName.toLowerCase() === 'select') {
+                        this.setCustomValidity('Select an option.');
+                    } else {
+                        this.setCustomValidity('Fill in this field.');
+                    }
+                } else if (this.validity.rangeUnderflow) {
+                    this.setCustomValidity('Invalid input.');
+                } else {
+                    // Standaard browser boodschap voor andere fouten
+                    this.setCustomValidity('');
+                }
+            });
+
+            // Wanneer de gebruiker input geeft, wordt de boodschap gewist.
             field.addEventListener('input', function() {
                 this.setCustomValidity('');
             });
         });
 
+        // Dit deel regelt wat er gebeurt bij het submitten van een ongeldig formulier.
         form.addEventListener('submit', function(e) {
+            // Als het formulier al geldig is, verstuur het dan.
+            if (form.checkValidity()) {
+                return;
+            }
+
+            // Stop de submit, want het formulier is ongeldig.
+            e.preventDefault();
+
+            // Bepaal de gewenste volgorde voor validatie.
+            const fieldOrder = [
+                'brand', 'material_type', 'description', 'quantity', 
+                'zone_name', 'purpose', 'packaging'
+            ];
+
+            // Zoek het eerste ongeldige veld in de opgegeven volgorde.
+            for (const fieldName of fieldOrder) {
+                const field = form.querySelector(`[name="${fieldName}"]`);
+                if (field && !field.checkValidity()) {
+                    field.focus();
+                    field.reportValidity(); // Toon de validatieboodschap
+                    return; // Stop na de eerste fout
+                }
+            }
+
+            // Fallback voor het geval een ander veld ongeldig is.
             if (!form.checkValidity()) {
-                e.preventDefault();
                 const firstInvalid = form.querySelector(':invalid');
                 if (firstInvalid) {
                     firstInvalid.focus();
@@ -843,6 +900,7 @@ function initAddItemModalContent() {
         });
     }
 }
+
 
 // Attach handlers for the edit material modal
 function initEditMaterialModalContent() {
