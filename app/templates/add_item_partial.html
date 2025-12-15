@@ -66,6 +66,7 @@
                 <div class="form-group">
                     <label for="purpose">Purpose</label>
                     <select id="purpose" name="purpose" required>
+                        <option value="" disabled selected>Select purpose</option>
                         <option value="keep">keep</option>
                         <option value="sell">sell</option>
                         <option value="dispose">dispose</option>
@@ -75,6 +76,7 @@
                 <div class="form-group">
                     <label for="packaging">Packaging</label>
                     <select id="packaging" name="packaging" required>
+                        <option value="" disabled selected>Select packaging</option>
                         <option value="open">open</option>
                         <option value="closed">closed</option>
                         <option value="none">none</option>
@@ -183,8 +185,12 @@
     }
     
     // Quantity validation - ensure English message
+    // Quantity validation and conditional fields
     const quantityInput = document.getElementById("quantity");
     const quantityError = document.getElementById("quantity-error");
+    const zoneInput = document.getElementById("zone_name");
+    const purposeSelect = document.getElementById("purpose");
+    const packagingSelect = document.getElementById("packaging");
     
     if (quantityInput && quantityError) {
         quantityInput.addEventListener("invalid", function(e) {
@@ -195,10 +201,29 @@
                 // Set custom English message
                 this.setCustomValidity("Quantity must be positive");
                 quantityError.style.display = "block";
+    if (quantityInput) {
+        // Logic for conditional fields based on quantity
+        if (zoneInput && purposeSelect && packagingSelect) {
+            const itemFieldGroups = [
+                zoneInput.closest('.form-group'),
+                purposeSelect.closest('.form-group'),
+                packagingSelect.closest('.form-group')
+            ];
+            const itemFields = [zoneInput, purposeSelect, packagingSelect];
+
+            const updateItemFieldsState = () => {
+                const isZero = quantityInput.value === '0';
+
+                itemFields.forEach(el => {
+                    el.required = !isZero;
+                    el.disabled = isZero;
+                });
                 
                 // Show our custom message instead of browser's default
                 requestAnimationFrame(() => {
                     this.reportValidity();
+                itemFieldGroups.forEach(el => {
+                    if (el) el.style.opacity = isZero ? '0.5' : '1';
                 });
             }
         });
@@ -214,6 +239,34 @@
                 this.setCustomValidity("");
             }
         });
+            };
+
+            quantityInput.addEventListener('input', updateItemFieldsState);
+            updateItemFieldsState(); // Set initial state on load
+        }
+
+        // Existing validation logic for the quantity field itself
+        if (quantityError) {
+            quantityInput.addEventListener("invalid", function(e) {
+                e.preventDefault();
+                if (this.validity.rangeUnderflow) {
+                    this.setCustomValidity("Quantity must be positive");
+                    quantityError.style.display = "block";
+                    requestAnimationFrame(() => { this.reportValidity(); });
+                }
+            });
+            
+            quantityInput.addEventListener("input", function() {
+                const value = parseInt(this.value);
+                if (this.value !== "" && (isNaN(value) || value < 0)) {
+                    quantityError.style.display = "block";
+                    this.setCustomValidity("Quantity must be positive");
+                } else {
+                    quantityError.style.display = "none";
+                    this.setCustomValidity("");
+                }
+            });
+        }
     }
 })();
 </script>
