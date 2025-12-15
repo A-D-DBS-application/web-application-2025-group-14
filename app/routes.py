@@ -309,12 +309,13 @@ def inventory():
     # Zet brands altijd (ook als er geen match is)
     brands = list(brands_dict.values())
 
-    # Toon brands met minstens één matching material
-    brands = [
-        b for b in brands_dict.values()
-        if b.get("material_count", 0) > 0
-    ]
-    
+    # Als er een zoekopdracht is, toon dan alleen de merken die overeenkomende materialen hebben.
+    # Anders (geen zoekopdracht), toon alle merken, zodat ook materialen zonder voorraad zichtbaar blijven.
+    if is_search:
+        brands = [
+            b for b in brands if b.get("materials")
+        ]
+
     # If brand filter is active, only show that brand in sidebar
     if q_brand and q_brand.strip():
         brands = [
@@ -720,7 +721,7 @@ def add_item():
                 return render_template("add_item_partial.html"), 400
             return redirect(url_for("main.inventory"))
 
-        # Material check
+        # --- Material Logic: Find, Create, or Update ---
         material = Material.query.filter_by(
             company_name=company_name,
             brand=brand,
@@ -760,6 +761,7 @@ def add_item():
 
         # --- Zone data ---
         zone_name = request.form["zone_name"].strip().upper()
+
         zone = Zone.query.filter_by(
             company_name=company_name,
             zone_name=zone_name,
@@ -788,6 +790,7 @@ def add_item():
                 # ❗ Update quantity instead of creating duplicate
                 existing_item.quantity += quantity
                 existing_item.comment = comment # Altijd updaten, ook naar None
+                flash("Item quantity updated successfully.", "success")
                 db.session.commit()
             except ValueError as e:
                 db.session.rollback()
