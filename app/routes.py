@@ -1226,11 +1226,11 @@ def return_item(reservation_id):
         # Validatie
         total_qty_processed = qty_stock + qty_discard + qty_changed
         if not error_msg:
-            if total_qty_processed <= 0:
-                error_msg = "Specify a quantity for at least one action."
-            elif total_qty_processed > reservation.quantity:
-                error_msg = f"Total quantity ({total_qty_processed}) is more than reserved ({reservation.quantity})."
-            
+            if total_qty_processed > reservation.quantity:
+                error_msg = "Specified quantities are more than the reserved quantity."
+            elif total_qty_processed <= 0:
+                error_msg = "Specify a quantity for at least one action." 
+
             if qty_changed > 0:
                 purpose = request.form.get("purpose")
                 packaging = request.form.get("packaging")

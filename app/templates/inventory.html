@@ -619,7 +619,6 @@ function initReturnModalContent() {
             const remaining = totalReserved - totalProcessed;
             remainingQtyEl.textContent = remaining;
             remainingQtyEl.style.color = remaining < 0 ? "red" : "inherit";
-            if (applyBtn) applyBtn.disabled = remaining < 0;
         }
 
         qtyInputs.forEach(input => input.addEventListener("input", updateTotal));
