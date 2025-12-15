@@ -23,7 +23,7 @@
 
                 <div class="form-group full-width">
                     <label for="description">Description</label>
-                    <textarea id="description" name="description" rows="4"></textarea>
+                    <textarea id="description" name="description" rows="4" required>{{ description or '' }}</textarea>
                 </div>
 
                 <div class="form-group">
@@ -96,3 +96,173 @@
         </div>
     </form>
 </div>
+
+<script>
+// Self-executing anonymous function to avoid polluting the global scope.
+// This script is now encapsulated with its HTML partial.
+(function() {
+    // Add a style tag for the autofill class, if it doesn't exist
+    if (!document.querySelector('[data-autofill-style]')) {
+        const style = document.createElement('style');
+        style.setAttribute('data-autofill-style', 'true'); // marker to prevent duplicates
+        style.innerHTML = `.autofilled { background-color: #f2f2f2 !important; }`;
+        document.head.appendChild(style);
+    }
+
+    // --- GET ALL ELEMENTS ---
+    const form = document.getElementById("add-item-form");
+    if (!form) return;
+
+    const brandInput = form.querySelector("#brand");
+    const brandSuggestionsBox = form.querySelector("#brand_suggestions");
+    const typeInput = form.querySelector('#material_type');
+    const descInput = form.querySelector('#description');
+    const priceInput = form.querySelector('#price');
+    const lifecycleInput = form.querySelector('#lifecycle');
+    const commentInput = form.querySelector('#comment');
+    const zoneInput = form.querySelector('#zone_name');
+    const purposeInput = form.querySelector('#purpose');
+    const packagingInput = form.querySelector('#packaging');
+    const quantityInput = form.querySelector('#quantity');
+
+    priceInput.setAttribute('min', '0');
+
+    // --- BRAND SUGGESTIONS ---
+    brandInput.addEventListener("input", function () {
+        const q = this.value.trim();
+        if (q.length === 0) {
+            brandSuggestionsBox.innerHTML = "";
+            return;
+        }
+
+        fetch(`/brand_suggest?q=${encodeURIComponent(q)}`)
+            .then(r => r.json())
+            .then(data => {
+                if (!data.suggestions.length) {
+                    brandSuggestionsBox.innerHTML = "";
+                    return;
+                }
+                brandSuggestionsBox.innerHTML = data.suggestions
+                    .map(s => `<div class="suggestion" style="cursor:pointer; padding: 2px 0;">${s}</div>`)
+                    .join("");
+
+                brandSuggestionsBox.onclick = (event) => {
+                    const suggestion = event.target.closest('.suggestion');
+                    if (suggestion) {
+                        brandInput.value = suggestion.textContent;
+                        brandSuggestionsBox.innerHTML = "";
+                        brandInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                };
+            });
+    });
+
+    // --- AUTO-FILL LOGIC ---
+    const materialAutofillElements = [descInput, priceInput, lifecycleInput];
+    const itemAutofillElements = [commentInput];
+
+    function setAutofilled(element, value) {
+        if (element.value !== value) { element.value = value; }
+        element.classList.add('autofilled');
+        element.addEventListener('input', function onFirstInput() {
+            element.classList.remove('autofilled');
+            element.removeEventListener('input', onFirstInput);
+        }, { once: true });
+    }
+
+    function clearAutofilled(elements) {
+        elements.forEach(el => {
+            if (el && el.classList.contains('autofilled')) {
+                el.value = '';
+                el.classList.remove('autofilled');
+            }
+        });
+    }
+
+    async function fetchMaterialDetails() {
+        const brand = brandInput.value.trim();
+        const type = typeInput.value.trim();
+        if (!brand || !type) { clearAutofilled(materialAutofillElements); return; }
+        try {
+            const response = await fetch(`/material_details?brand=${encodeURIComponent(brand)}&type=${encodeURIComponent(type)}`);
+            if (!response.ok) { clearAutofilled(materialAutofillElements); return; }
+            const data = await response.json();
+            if (data && data.description) {
+                setAutofilled(descInput, data.description || '');
+                setAutofilled(priceInput, data.price || '');
+                setAutofilled(lifecycleInput, data.lifecycle || '');
+            } else { clearAutofilled(materialAutofillElements); }
+        } catch (error) { console.error('Error fetching material details:', error); clearAutofilled(materialAutofillElements); }
+    }
+
+    async function fetchItemDetails() {
+        const params = new URLSearchParams({ brand: brandInput.value.trim(), type: typeInput.value.trim(), zone: zoneInput.value.trim(), purpose: purposeInput.value, packaging: packagingInput.value });
+        if (!params.get('brand') || !params.get('type') || !params.get('zone') || !params.get('purpose') || !params.get('packaging')) { clearAutofilled(itemAutofillElements); return; }
+        try {
+            const response = await fetch(`/item_details?${params.toString()}`);
+            if (!response.ok) { clearAutofilled(itemAutofillElements); return; }
+            const data = await response.json();
+            if (data && data.comment) { setAutofilled(commentInput, data.comment); } else { clearAutofilled(itemAutofillElements); }
+        } catch (error) { console.error('Error fetching item details:', error); clearAutofilled(itemAutofillElements); }
+    }
+
+    // Add event listeners
+    brandInput.addEventListener('input', fetchMaterialDetails);
+    typeInput.addEventListener('input', fetchMaterialDetails);
+    brandInput.addEventListener('input', fetchItemDetails);
+    typeInput.addEventListener('input', fetchItemDetails);
+    zoneInput.addEventListener('input', fetchItemDetails);
+    purposeInput.addEventListener('change', fetchItemDetails);
+    packagingInput.addEventListener('change', fetchItemDetails);
+
+    // --- CONDITIONAL REQUIRED FIELDS ---
+    // Makes item-specific fields (zone, purpose, packaging) optional if quantity is 0.
+    const requiredFields = [zoneInput, purposeInput, packagingInput];
+    const allConditionalFields = [zoneInput, purposeInput, packagingInput, commentInput];
+    const fieldGroups = allConditionalFields.map(el => el ? el.closest('.form-group') : null);
+
+    const updateItemFieldsState = () => {
+        const isZero = quantityInput.value === '0';
+        fieldGroups.forEach(group => { if (group) group.style.opacity = isZero ? '0.5' : '1'; });
+        allConditionalFields.forEach(field => { if (field) field.disabled = isZero; });
+        requiredFields.forEach(field => { if (field) field.required = !isZero; });
+    };
+
+    quantityInput.addEventListener('input', updateItemFieldsState);
+    updateItemFieldsState(); // Set initial state on load
+
+    // --- VALIDATION ---
+    const fieldsToValidate = form.querySelectorAll('input, select, textarea');
+    fieldsToValidate.forEach(function(field) {
+        field.addEventListener('invalid', function() {
+            if (this.validity.valueMissing) {
+                this.setCustomValidity(this.tagName.toLowerCase() === 'select' ? 'Select an option.' : 'Fill in this field.');
+            } else if (this.validity.rangeUnderflow) {
+                this.setCustomValidity('Invalid input.');
+            } else {
+                this.setCustomValidity('');
+            }
+        });
+        field.addEventListener('input', function() { this.setCustomValidity(''); });
+    });
+
+    form.addEventListener('submit', function(e) {
+        if (form.checkValidity()) return;
+        e.preventDefault();
+        const fieldOrder = ['brand', 'material_type', 'description', 'quantity', 'zone_name', 'purpose', 'packaging'];
+        for (const fieldName of fieldOrder) {
+            const field = form.querySelector(`[name="${fieldName}"]`);
+            if (field && !field.checkValidity()) {
+                field.focus();
+                field.reportValidity();
+                return;
+            }
+        }
+        const firstInvalid = form.querySelector(':invalid');
+        if (firstInvalid) {
+            firstInvalid.focus();
+            firstInvalid.reportValidity();
+        }
+    });
+})();
+</script>

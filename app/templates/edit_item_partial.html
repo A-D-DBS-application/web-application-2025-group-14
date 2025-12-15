@@ -1,4 +1,4 @@
-{# Partial used inside the edit item modal (loaded via fetch) #}
+{# Partial voor het bewerken van een item, bruikbaar in een modal of een volledige pagina. #}
 <div class="edit-item-content">
     <p style="margin-bottom: 16px; color: #6b7280;">
         <strong style="color: #1e293b;">{{ item.material.brand }} – {{ item.material.material_type }}</strong><br>
@@ -12,7 +12,18 @@
     {% endif %}
 
     <form method="post" 
-          action="{{ url_for('main.edit_item', item_id=item.item_id) }}"
+          action="{{ url_for('main.edit_item', 
+                             item_id=item.item_id,
+                             brand=request.args.get('brand'),
+                             material_id=request.args.get('material_id'),
+                             q_brand=request.args.get('q_brand'),
+                             q_type=request.args.get('q_type'),
+                             q_desc=request.args.get('q_desc'),
+                             q_zone=request.args.get('q_zone'),
+                             q_lifecycle=request.args.get('q_lifecycle'),
+                             filter_purpose=request.args.get('filter_purpose'),
+                             filter_packaging=request.args.get('filter_packaging')
+                             ) }}"
           id="edit-item-form"
           data-item-id="{{ item.item_id }}"
           data-material-brand="{{ item.material.brand }}"
@@ -22,7 +33,7 @@
         <label>
             Zone
             <input
-                id="zone_name"
+                id="edit_zone_name"
                 name="zone_name"
                 type="text"
                 class="form-input"
@@ -56,7 +67,99 @@
 
         <div class="filter-actions">
             <button type="submit" class="btn-primary">Save</button>
-            <button type="button" class="btn-secondary" onclick="closeEditItemModal(); return false;">Cancel</button>
+            {% if is_full_page %}
+                <a href="{{ url_for('main.inventory') }}" class="btn-secondary">Cancel</a>
+            {% else %}
+                <button type="button" class="btn-secondary" onclick="closeEditItemModal(); return false;">Cancel</button>
+            {% endif %}
         </div>
     </form>
 </div>
+
+<script>
+(function() {
+    document.addEventListener("DOMContentLoaded", function() {
+        initEditItemForm();
+    });
+
+    // If the script is loaded via AJAX, DOMContentLoaded has already fired.
+    // So we check and run it immediately if needed.
+    if (document.readyState === "complete" || document.readyState === "interactive") {
+        initEditItemForm();
+    }
+
+    function initEditItemForm() {
+        const form = document.getElementById('edit-item-form');
+        if (!form || form.dataset.initialized) return;
+        form.dataset.initialized = 'true';
+
+        // Add a style tag for the autofill class
+        if (!document.head.querySelector('[data-autofill-style]')) {
+            const style = document.createElement('style');
+            style.setAttribute('data-autofill-style', 'true');
+            style.innerHTML = `.autofilled { background-color: #f2f2f2 !important; }`;
+            document.head.appendChild(style);
+        }
+
+        const itemId = form.dataset.itemId;
+        const brand = form.dataset.materialBrand;
+        const type = form.dataset.materialType;
+
+        if (!itemId || !brand || !type) return;
+
+        const zoneInput = form.querySelector('#edit_zone_name');
+        const purposeInput = form.querySelector('select[name="purpose"]');
+        const packagingInput = form.querySelector('select[name="packaging"]');
+        const commentInput = form.querySelector('input[name="comment"]');
+
+        if (!zoneInput || !purposeInput || !packagingInput || !commentInput) return;
+        
+        const autofillElements = [commentInput];
+
+        function setAutofilled(element, value) {
+            if (element.value !== value) {
+                element.value = value;
+            }
+            element.classList.add('autofilled');
+            
+            element.addEventListener('input', function onFirstInput() {
+                element.classList.remove('autofilled');
+                element.removeEventListener('input', onFirstInput);
+            }, { once: true });
+        }
+
+        function clearAutofilled(elements) {
+            elements.forEach(el => {
+                if (el.classList.contains('autofilled')) {
+                    el.value = '';
+                    el.classList.remove('autofilled');
+                }
+            });
+        }
+
+        async function fetchItemDetails() {
+            const zone = zoneInput.value.trim();
+            const purpose = purposeInput.value;
+            const packaging = packagingInput.value;
+
+            if (!zone || !purpose || !packaging) {
+                clearAutofilled(autofillElements);
+                return;
+            }
+
+            const params = new URLSearchParams({ brand, type, zone, purpose, packaging, exclude_id: itemId });
+            try {
+                const response = await fetch(`/item_details?${params.toString()}`);
+                if (!response.ok) { clearAutofilled(autofillElements); return; }
+                const data = await response.json();
+                if (data && data.comment) { setAutofilled(commentInput, data.comment); } 
+                else { clearAutofilled(autofillElements); }
+            } catch (error) { console.error('Error fetching item details:', error); clearAutofilled(autofillElements); }
+        }
+
+        zoneInput.addEventListener('input', fetchItemDetails);
+        purposeInput.addEventListener('change', fetchItemDetails);
+        packagingInput.addEventListener('change', fetchItemDetails);
+    }
+})();
+</script>

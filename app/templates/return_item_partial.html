@@ -1,5 +1,5 @@
-{# Partial used inside the return modal (loaded via fetch) #}
-<div class="return-content">
+{# Partial voor het verwerken van een reservatie, bruikbaar in een modal of een volledige pagina. #}
+<div class="return-item-content">
     <header class="return-header">
         <div>
             <h3 class="return-title">{{ item.material.brand }} — {{ item.material.material_type }}</h3>
@@ -102,9 +102,137 @@
         </div>
         {% endif %}
 
+        <div id="return-form-error" class="flash-message flash-error" style="display: none; margin-top: 10px; margin-bottom: 0; border-radius: 8px;">
+            <!-- Client-side errors appear here -->
+        </div>
+
         <div class="return-actions">
-            <button type="button" class="btn-secondary" onclick="closeReturnModal()">Cancel</button>
+            {% if is_full_page %}
+                <a href="{{ url_for('main.inventory') }}" class="btn-secondary">Cancel</a>
+            {% else %}
+                <button type="button" class="btn-secondary" onclick="closeReturnModal()">Cancel</button>
+            {% endif %}
             <button type="submit" class="btn-primary" id="apply-button">Apply changes</button>
         </div>
     </form>
 </div>
+
+<script>
+(function() {
+    // The logic needs to run immediately if the partial is loaded via AJAX,
+    // so we can't just rely on DOMContentLoaded.
+    function initReturnItemForm() {
+        const form = document.getElementById("return-form");
+        if (!form || form.dataset.initialized) return; // Check if already initialized
+        form.dataset.initialized = "true";
+
+        const qtyInputs = form.querySelectorAll(".quantity-input");
+        const totalReservedEl = document.getElementById("total-reserved");
+        const remainingQtyEl = document.getElementById("remaining-qty");
+        const changedFields = form.querySelector("#changed-fields");
+        const qtyChangedInput = form.querySelector("#qty_mark_changed");
+
+        if (!totalReservedEl || !remainingQtyEl) return;
+
+        const totalReserved = parseInt(totalReservedEl.textContent, 10) || 0;
+
+        function updateTotal() {
+            let totalProcessed = 0;
+            qtyInputs.forEach(input => {
+                const val = parseInt(input.value, 10);
+                totalProcessed += isNaN(val) ? 0 : val;
+            });
+            const remaining = totalReserved - totalProcessed;
+            remainingQtyEl.textContent = remaining;
+            remainingQtyEl.style.color = remaining < 0 ? "#991b1b" : "inherit"; // Use a specific error color
+        }
+
+        qtyInputs.forEach(input => input.addEventListener("input", updateTotal));
+        updateTotal(); // Initial call
+
+        // --- DYNAMIC REQUIRED FIELDS & VALIDATION ---
+        if (qtyChangedInput && changedFields) {
+            const newZoneInput = changedFields.querySelector('input[name="zone_name"]');
+            const newPurposeInput = changedFields.querySelector('select[name="purpose"]');
+            const newPackagingInput = changedFields.querySelector('select[name="packaging"]');
+
+            qtyChangedInput.addEventListener("input", () => {
+                const val = parseInt(qtyChangedInput.value, 10) || 0;
+                const isRequired = val > 0;
+
+                changedFields.style.display = isRequired ? "grid" : "none"; // Use grid for better layout
+
+                if (newZoneInput) newZoneInput.required = isRequired;
+                if (newPurposeInput) newPurposeInput.required = isRequired;
+                if (newPackagingInput) newPackagingInput.required = isRequired;
+            });
+            // Initial check
+            qtyChangedInput.dispatchEvent(new Event('input'));
+        }
+
+        // --- GENERIC FORM VALIDATION ---
+        const fieldsToValidate = form.querySelectorAll('input, select, textarea');
+        fieldsToValidate.forEach(function(field) {
+            field.addEventListener('invalid', function(e) {
+                e.preventDefault();
+                if (this.validity.valueMissing) {
+                    this.setCustomValidity('Please fill in this field.');
+                } else if (this.validity.rangeUnderflow) {
+                    this.setCustomValidity('Value must be greater than or equal to 0.');
+                } else if (this.validity.rangeOverflow) {
+                    this.setCustomValidity(`Value cannot be more than ${this.max}.`);
+                } else {
+                    this.setCustomValidity('');
+                }
+                this.reportValidity();
+            });
+
+            field.addEventListener('input', function() {
+                this.setCustomValidity('');
+            });
+        });
+
+        form.addEventListener('submit', function(e) {
+            const errorDiv = document.getElementById('return-form-error');
+            errorDiv.style.display = 'none'; // Hide on new submit
+
+            let totalProcessed = 0;
+            qtyInputs.forEach(input => {
+                const val = parseInt(input.value, 10);
+                totalProcessed += isNaN(val) ? 0 : val;
+            });
+
+            let clientError = null;
+            if (totalProcessed > totalReserved) {
+                clientError = `The total quantity (${totalProcessed}) cannot exceed the reserved amount (${totalReserved}).`;
+            } else if (totalProcessed <= 0) {
+                clientError = `Please specify a quantity for at least one action.`;
+            }
+
+            if (clientError) {
+                e.preventDefault();
+                errorDiv.textContent = clientError;
+                errorDiv.style.display = 'block';
+                return;
+            }
+
+            if (!form.checkValidity()) {
+                e.preventDefault();
+                const firstInvalid = form.querySelector(':invalid');
+                if (firstInvalid) {
+                    firstInvalid.focus();
+                    firstInvalid.reportValidity();
+                }
+            }
+        });
+    }
+
+    // For full page loads
+    document.addEventListener("DOMContentLoaded", initReturnItemForm);
+
+    // For AJAX loads, where DOMContentLoaded has already fired.
+    if (document.readyState === "complete" || document.readyState === "interactive") {
+        initReturnItemForm();
+    }
+})();
+</script>

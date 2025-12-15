@@ -1,5 +1,5 @@
-{# Partial used inside the edit material modal (loaded via fetch) #}
-{% set form_action_url = url_for('main.edit_material',
+{# Partial voor het bewerken van een materiaal, bruikbaar in een modal of een volledige pagina. #}
+{% set form_action_url = url_for('main.edit_material', 
     material_id=material.material_id,
     brand=request.args.get('brand'),
     material_id_for_return=request.args.get('material_id_for_return'),
@@ -41,7 +41,11 @@
 
     <div class="filter-actions" style="display: flex; align-items: center; gap: 8px;">
         <button type="submit" class="btn-primary">Save</button>
-        <button type="button" class="btn-secondary" onclick="closeEditMaterialModal()">Cancel</button>
+        {% if is_full_page %}
+            <a href="{{ url_for('main.inventory') }}" class="btn-secondary">Cancel</a>
+        {% else %}
+            <button type="button" class="btn-secondary" onclick="closeEditMaterialModal()">Cancel</button>
+        {% endif %}
     </div>
 </form>
 
@@ -64,3 +68,104 @@
         {% endif %}
     </div>
 </div>
+
+<script>
+(function() {
+    document.addEventListener("DOMContentLoaded", function() {
+        initEditMaterialForm();
+    });
+
+    if (document.readyState === "complete" || document.readyState === "interactive") {
+        initEditMaterialForm();
+    }
+
+    function initEditMaterialForm() {
+        const form = document.getElementById('edit-material-form');
+        if (!form || form.dataset.initialized) return;
+        form.dataset.initialized = 'true';
+
+        // Add a style tag for the autofill class
+        if (!document.head.querySelector('[data-autofill-style]')) {
+            const style = document.createElement('style');
+            style.setAttribute('data-autofill-style', 'true');
+            style.innerHTML = `.autofilled { background-color: #f2f2f2 !important; }`;
+            document.head.appendChild(style);
+        }
+
+        // --- AUTO-FILL MATERIAL DETAILS ---
+        const brandInput = form.querySelector('input[name="brand"]');
+        const typeInput = form.querySelector('input[name="material_type"]');
+        const descInput = form.querySelector('textarea[name="description"]');
+        const priceInput = form.querySelector('input[name="price"]');
+        const lifecycleInput = form.querySelector('input[name="lifecycle"]');
+        const materialId = form.dataset.materialId;
+
+        const autofillElements = [descInput, priceInput, lifecycleInput];
+
+        function setAutofilled(element, value) {
+            if (element.value !== value) { element.value = value; }
+            element.classList.add('autofilled');
+            element.addEventListener('input', function onFirstInput() {
+                element.classList.remove('autofilled');
+                element.removeEventListener('input', onFirstInput);
+            }, { once: true });
+        }
+
+        function clearAutofilled(elements) {
+            elements.forEach(el => {
+                if (el.classList.contains('autofilled')) {
+                    el.value = '';
+                    el.classList.remove('autofilled');
+                }
+            });
+        }
+
+        async function fetchMaterialDetails() {
+            const brand = brandInput.value.trim();
+            const type = typeInput.value.trim();
+            if (!brand || !type) { clearAutofilled(autofillElements); return; }
+
+            try {
+                const params = new URLSearchParams({ brand, type, exclude_id: materialId });
+                const response = await fetch(`/material_details?${params.toString()}`);
+                if (!response.ok) { clearAutofilled(autofillElements); return; }
+                const data = await response.json();
+                if (data && data.description) {
+                    setAutofilled(descInput, data.description || '');
+                    setAutofilled(priceInput, data.price || '');
+                    setAutofilled(lifecycleInput, data.lifecycle || '');
+                } else {
+                    clearAutofilled(autofillElements);
+                }
+            } catch (error) { console.error('Error fetching material details:', error); }
+        }
+
+        brandInput.addEventListener('input', fetchMaterialDetails);
+        typeInput.addEventListener('input', fetchMaterialDetails);
+
+        // --- VALIDATION ---
+        const fields = form.querySelectorAll('input[required], textarea[required], input[name="price"]');
+        fields.forEach(function(field) {
+            field.addEventListener('invalid', function(e) {
+                e.preventDefault();
+                if (this.validity.valueMissing) { this.setCustomValidity('Please fill in this field.'); } 
+                else if (this.validity.rangeUnderflow) { this.setCustomValidity('Value must be greater than or equal to 0.'); } 
+                else { this.setCustomValidity(''); }
+                this.reportValidity();
+            });
+            field.addEventListener('input', function() { this.setCustomValidity(''); });
+        });
+
+        form.addEventListener('submit', function(e) {
+            if (!form.checkValidity()) {
+                e.preventDefault();
+                const firstInvalid = form.querySelector(':invalid');
+                if (firstInvalid) {
+                    firstInvalid.focus();
+                    firstInvalid.reportValidity();
+                }
+            }
+        });
+    }
+})();
+</script>

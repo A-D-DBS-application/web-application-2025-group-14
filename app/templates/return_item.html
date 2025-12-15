@@ -1,13 +1,13 @@
 {% extends "base.html" %}
+{% block body_class %}no-sidebar{% endblock %}
 
 {% block title %}Return Item{% endblock %}
 
 {% block content %}
-<div class="page-spacer">
-    <div class="card">
-        <div class="card-body">
-            {% include "return_item_partial.html" %}
-        </div>
+<div class="form-page">
+    <h1 class="page-title">Return Reserved Item</h1>
+    <div class="form-card form-card-wide">
+        {% include "return_item_partial.html" with context %}
     </div>
 </div>
 {% endblock %}

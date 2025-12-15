@@ -159,38 +159,6 @@ if (event.target.matches('[data-panel-close], .panel-backdrop')) {
         panel.classList.remove('is-open');
     }
 }
-
-
-    /*  --------------------------------------------------
-        (MODAL SCRIPT BEGIN)
-        Openen/sluiten van reservations-modals
-    -------------------------------------------------- */
-    const modalOpenBtn = event.target.closest("[data-modal-target]");
-    if (modalOpenBtn && modalOpenBtn.getAttribute("data-modal-target") !== "addItemModal") {
-        const modalId = modalOpenBtn.getAttribute("data-modal-target");
-        const modal = document.getElementById(modalId);
-        if (modal) {
-            modal.classList.add("is-open");
-            // Remove any inline display style to allow CSS to control visibility
-            modal.style.display = "";
-        }
-    }
-
-    // CLOSE MODAL (via kruisje of backdrop)
-    if (
-        event.target.matches("[data-modal-close]") ||
-        event.target.closest("[data-modal-close]")
-    ) {
-        const modal = event.target.closest(".modal");
-        if (modal) {
-            modal.classList.remove("is-open");
-            // Don't set inline display, let CSS handle it
-        }
-    }
-    /*  ---------------------------
-        (MODAL SCRIPT END)
-    --------------------------- */
-
 });
 
 // Auto-dismiss flash messages

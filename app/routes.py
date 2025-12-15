@@ -8,17 +8,35 @@ from .models import db, Material, Zone, Item, Reservation, User, Company, Materi
 from flask import session
 from urllib.parse import urlparse
 
+# ===========================================================================
+# HELPER FUNCTIES
+# Deze functies centraliseren herbruikte logica om duplicatie te vermijden
+# en de routes zelf schoner en leesbaarder te maken.
+# ===========================================================================
 
-def record_material_event(username: str, material_id: int, event_type: str) -> None:
+def _get_current_company_name() -> str:
+    """
+    Haalt de bedrijfsnaam van de ingelogde gebruiker op uit de sessie.
+    Dit maakt de code in de routes duidelijker en centraliseert de sessie-toegang.
+    """
+    return session.get("company_name") or "Primetals"
 
-    #Houdt per gebruiker + materiaal + type event (view/reserve) bij:
-    #hoeveel keer het gebeurd is (total_events)
-    #wanneer het laatst gebeurd is (date)
 
+def _record_material_event(username: str, material_id: int, event_type: str) -> None:
+    """
+    Houdt gebruikersinteracties met materialen bij (views en reservaties).
+    Deze data wordt gebruikt voor de 'For You' pagina.
+
+    - Zoekt een bestaand 'MaterialEvent' record voor de combinatie user/material/type.
+    - Als het bestaat, wordt de teller (`total_events`) verhoogd en de datum bijgewerkt.
+    - Als het niet bestaat, wordt een nieuw record aangemaakt.
+
+    Dit zorgt voor een efficiënte tracking zonder voor elke view een nieuwe rij
+    in de database aan te maken.
+    """
     if not username or not material_id:
         return
 
-    # Kijk of er al een record bestaat voor deze user + materiaal + type
     ev = MaterialEvent.query.filter_by(
         username=username,
         material_id=material_id,
@@ -26,11 +44,9 @@ def record_material_event(username: str, material_id: int, event_type: str) -> N
     ).first()
 
     if ev:
-        # Bestaat al → teller ophogen en datum updaten
         ev.total_events = (ev.total_events or 0) + 1
         ev.date = datetime.utcnow()
     else:
-        # Eerste keer → nieuw record
         ev = MaterialEvent(
             username=username,
             material_id=material_id,
@@ -42,39 +58,63 @@ def record_material_event(username: str, material_id: int, event_type: str) -> N
 
     db.session.commit()
 
-def redirect_back(fallback_endpoint: str = "main.inventory"):
-    """
-    Stuur de gebruiker terug naar de pagina waar hij vandaan kwam (request.referrer),
-    inclusief eventuele filters in de querystring.
 
-    Als er geen referrer is, of de referrer heeft geen query-parameters
-    (dus een 'schone' pagina), ga dan gewoon naar de standaard inventory-pagina.
+def _redirect_back(fallback_endpoint: str = "main.inventory"):
+    """
+    Stuur de gebruiker terug naar de vorige pagina (request.referrer).
+    Dit is essentieel om de context (zoals actieve filters) te behouden na een actie.
+
+    - Als er een 'referrer' is met query parameters (bv. filters), wordt de gebruiker
+      teruggestuurd naar die exacte URL.
+    - In alle andere gevallen (geen referrer, of een referrer zonder query string),
+      wordt de gebruiker naar een veilige fallback-pagina gestuurd (standaard de inventory).
     """
     ref = request.referrer
     if not ref:
-        # Geen referrer → gewoon naar inventory
         return redirect(url_for(fallback_endpoint))
 
     parsed = urlparse(ref)
-
-    # Als er geen querystring is (bv. 'http://.../'), beschouwen we dat
-    # als een 'schone' pagina en sturen we naar de gewone inventory.
     if not parsed.query:
         return redirect(url_for(fallback_endpoint))
 
-    # Anders: gewoon terug naar de vorige URL mét filters
     return redirect(ref)
 
 
+def _find_or_create_zone(company_name: str, zone_name: str) -> Zone:
+    """
+    Zoekt een zone op naam. Als die niet bestaat, wordt een nieuwe aangemaakt.
+    Voorkomt duplicatie in 'add_item' en 'edit_item'.
+    """
+    zone = Zone.query.filter_by(company_name=company_name, zone_name=zone_name).first()
+    if zone is None:
+        zone = Zone(zone_name=zone_name, company_name=company_name)
+        db.session.add(zone)
+        db.session.flush()  # Zorgt ervoor dat de zone een ID krijgt vooraleer te committen
+    return zone
 
+
+def _handle_ajax_form_error(error_msg: str, partial_template: str, full_template: str, **context):
+    """
+    Centraliseert de foutafhandeling voor formulieren die zowel via AJAX (modals)
+    als via een volledige pagina kunnen worden ingediend.
+
+    - Als het een AJAX-request is, wordt de partial template gerenderd met een 400-statuscode.
+    - Anders wordt de volledige pagina opnieuw gerenderd met de foutmelding.
+    """
+    flash(error_msg, "error")
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return render_template(partial_template, error=error_msg, **context), 400
+    return render_template(full_template, error=error_msg, **context)
+
+
+# ===========================================================================
+# BLUEPRINT & AUTHENTICATIE
+# ===========================================================================
 
 main = Blueprint("main", __name__)
-#----------------------------------------------------------------------------
 
 @main.route("/login", methods=["GET", "POST"])
 def login():
-    """Login met Users uit de database, per company."""
-
     if request.method == "POST":
         username = request.form.get("username")
 
@@ -82,11 +122,9 @@ def login():
         # Niet-hoofdlettergevoelige zoekopdracht
         user = User.query.filter(func.lower(User.username) == func.lower(username)).first()
 
-        # user bestaat niet of wachtwoord fout (plain text vergelijking)
         if not user:
             return render_template("login.html", error="Invalid login")
 
-        # alles ok → sessie vullen
         session.permanent = True
         session["username"] = user.username          # NIET user.full_name
         session["company_name"] = user.company_name  # komt uit Supabase
@@ -96,28 +134,26 @@ def login():
 
     return render_template("login.html")
 
-
-
-
 @main.route("/logout")
 def logout():
     session.clear()
     return redirect(url_for("main.login"))
 
 
+# ===========================================================================
+# INVENTORY & SEARCH LOGICA
+# De 'inventory' route is opgesplitst in helpers voor leesbaarheid.
+# ===========================================================================
 
-# ---------------------------------------------------------------------------
-# INVENTORY OVERVIEW
-# ---------------------------------------------------------------------------
-@main.route("/")
-def inventory():
-    if "username" not in session:
-        return redirect(url_for("main.login"))
-
+def _process_filters():
+    """
+    Verwerkt alle zoek- en filterparameters uit de request en sessie.
+    Geeft een dictionary met filterwaarden terug, en een eventueel redirect-object.
+    """
     # --- Clear filters if requested ---
     if request.args.get("clear_filters") == "1":
         session.pop("filters", None)
-        return redirect(url_for("main.inventory"))
+        return None, redirect(url_for("main.inventory"))
 
     # --- Sidebar (manual) selection ---
     active_brand = request.args.get("brand")
@@ -125,72 +161,70 @@ def inventory():
 
     # --- Search & Filter (search flow) ---
     # Get filters from URL params first, fallback to session if not in URL
-    q_type = request.args.get("q_type")
-    q_desc = request.args.get("q_desc")
-    q_brand = request.args.get("q_brand")
-    q_zone = request.args.get("q_zone")
-    q_lifecycle = request.args.get("q_lifecycle")
-    filter_purpose = request.args.get("filter_purpose")
-    filter_packaging = request.args.get("filter_packaging")
+    url_filters = {
+        "q_type": request.args.get("q_type"),
+        "q_desc": request.args.get("q_desc"),
+        "q_brand": request.args.get("q_brand"),
+        "q_zone": request.args.get("q_zone"),
+        "q_lifecycle": request.args.get("q_lifecycle"),
+        "filter_purpose": request.args.get("filter_purpose"),
+        "filter_packaging": request.args.get("filter_packaging"),
+    }
 
     # If filters are provided in URL, save them to session
-    if any([q_type, q_desc, q_brand, q_zone, q_lifecycle, filter_purpose, filter_packaging]):
-        session["filters"] = {
-            "q_type": q_type or "",
-            "q_desc": q_desc or "",
-            "q_brand": q_brand or "",
-            "q_zone": q_zone or "",
-            "q_lifecycle": q_lifecycle or "",
-            "filter_purpose": filter_purpose or "",
-            "filter_packaging": filter_packaging or "",
-        }
+    if any(url_filters.values()):
+        session["filters"] = {k: v or "" for k, v in url_filters.items()}
     # If no filters in URL but session has filters, use session filters
     elif "filters" in session and not any([active_brand, active_material_id]):
-        saved_filters = session["filters"]
-        q_type = saved_filters.get("q_type", "")
-        q_desc = saved_filters.get("q_desc", "")
-        q_brand = saved_filters.get("q_brand", "")
-        q_zone = saved_filters.get("q_zone", "")
-        q_lifecycle = saved_filters.get("q_lifecycle", "")
-        filter_purpose = saved_filters.get("filter_purpose", "")
-        filter_packaging = saved_filters.get("filter_packaging", "")
+        saved_filters = session.get("filters", {})
         # Redirect with session filters in URL to make them visible and persistent
-        return redirect(url_for("main.inventory",
-            q_type=q_type if q_type else None,
-            q_desc=q_desc if q_desc else None,
-            q_brand=q_brand if q_brand else None,
-            q_zone=q_zone if q_zone else None,
-            q_lifecycle=q_lifecycle if q_lifecycle else None,
-            filter_purpose=filter_purpose if filter_purpose else None,
-            filter_packaging=filter_packaging if filter_packaging else None,
-        ))
+        redirect_url = url_for("main.inventory", **{k: v for k, v in saved_filters.items() if v})
+        return None, redirect(redirect_url)
+
+    # Use the filters from the session if they exist, otherwise from the URL
+    current_filters = session.get("filters", url_filters)
+
     # Normalize all filter values to strings to avoid None.strip errors
-    q_type = q_type or ""
-    q_desc = q_desc or ""
-    q_brand = q_brand or ""
-    q_zone = q_zone or ""
-    q_lifecycle = q_lifecycle or ""
-    filter_purpose = filter_purpose or ""
-    filter_packaging = filter_packaging or ""
+    q_type = current_filters.get("q_type", "") or ""
+    q_desc = current_filters.get("q_desc", "") or ""
+    q_brand = current_filters.get("q_brand", "") or ""
+    q_zone = current_filters.get("q_zone", "") or ""
+    q_lifecycle = current_filters.get("q_lifecycle", "") or ""
+    filter_purpose = current_filters.get("filter_purpose", "") or ""
+    filter_packaging = current_filters.get("filter_packaging", "") or ""
+
+    # determine whether this request is a "search" (right-panel) request:
+    is_search = any([
+        bool(q_type.strip()), bool(q_desc.strip()), bool(q_brand.strip()),
+        bool(q_zone.strip()), bool(q_lifecycle.strip()),
+        bool(filter_purpose), bool(filter_packaging),
+    ])
+
+    company_name = _get_current_company_name()
 
     # --- Make brand "active" if searching by it ---
     if q_brand and not active_brand:
         active_brand = q_brand
 
-    # determine whether this request is a "search" (right-panel) request:
-    is_search = any([
-        bool(q_type.strip()),
-        bool(q_desc.strip()),
-        bool(q_brand.strip()),
-        bool(q_zone.strip()),
-        bool(q_lifecycle.strip()),
-        bool(filter_purpose),
-        bool(filter_packaging),
-    ])
+    filters = {
+        "active_brand": active_brand,
+        "active_material_id": active_material_id,
+        "q_type": q_type, "q_desc": q_desc, "q_brand": q_brand,
+        "q_zone": q_zone, "q_lifecycle": q_lifecycle,
+        "filter_purpose": filter_purpose, "filter_packaging": filter_packaging,
+        "is_search": is_search,
+        "company_name": company_name,
+    }
+    return filters, None
 
-    company_name = session.get("company_name") or "Primetals"
 
-    # --- 1) Sidebar brands + materials (unchanged) ---
+def _get_sidebar_data(company_name, filters):
+    """Haalt de data op voor de sidebar (merken en materialen) en filtert deze."""
+    active_brand = filters["active_brand"]
+    q_type, q_desc, q_brand, q_zone, q_lifecycle = filters["q_type"], filters["q_desc"], filters["q_brand"], filters["q_zone"], filters["q_lifecycle"]
+    filter_purpose, filter_packaging = filters["filter_purpose"], filters["filter_packaging"]
+    is_search = filters["is_search"]
+
     material_stats = (
         db.session.query(
             Material,
@@ -203,19 +237,11 @@ def inventory():
         .all()
     )
 
-    # Ensure brands always exists to avoid UnboundLocalError
     brands_dict = {}
-    brands = []
-
     for material, total_quantity in material_stats:
         brand_name = material.brand
+        is_brand_active = active_brand and brand_name.lower() == active_brand.lower()
 
-        # Case-insensitive active_brand bepalen
-        is_brand_active = False
-        if active_brand and brand_name.lower() == active_brand.lower():
-            is_brand_active = True
-
-        # Maak de brand entry aan als die nog niet bestaat
         if brand_name not in brands_dict:
             brands_dict[brand_name] = {
                 "name": brand_name,
@@ -224,270 +250,109 @@ def inventory():
                 "active": is_brand_active,  # flag voor template
             }
 
-        # ----- Controleer of dit materiaal bij alle actieve filters past -----
         material_matches = True
+        if not active_brand and q_brand and brand_name.lower() != q_brand.lower(): material_matches = False
+        if q_type and q_type.strip() and q_type.lower() not in (material.material_type or "").lower(): material_matches = False
+        if q_desc and q_desc.strip() and q_desc.lower() not in (material.description or "").lower(): material_matches = False
+        if q_lifecycle and q_lifecycle.strip() and q_lifecycle.lower() not in (material.lifecycle or "").lower(): material_matches = False
+        
+        if q_zone and q_zone.strip() and not any(z.zone_name.lower().find(q_zone.lower()) != -1 for z in Zone.query.join(Item).filter(Item.material_id == material.material_id).all()): material_matches = False
+        if filter_purpose and not any(i.purpose == filter_purpose for i in Item.query.filter_by(material_id=material.material_id).all()): material_matches = False
+        if filter_packaging and not any(i.packaging == filter_packaging for i in Item.query.filter_by(material_id=material.material_id).all()): material_matches = False
 
-        # Brand filter: only check q_brand if active_brand is not set (active_brand takes precedence)
-        if not active_brand and q_brand and brand_name.lower() != q_brand.lower():
-            material_matches = False
-
-        # Type filter
-        if q_type and q_type.strip() and q_type.lower() not in (material.material_type or "").lower():
-            material_matches = False
-
-        # Description filter
-        if q_desc and q_desc.strip() and q_desc.lower() not in (material.description or "").lower():
-            material_matches = False
-
-        # Lifecycle filter
-        if q_lifecycle and q_lifecycle.strip() and q_lifecycle.lower() not in (material.lifecycle or "").lower():
-            material_matches = False
-
-        # Zone filter: check of er minstens één item in deze zone hoort
-        if q_zone and q_zone.strip():
-            has_matching_zone = any(
-                z.zone_name.lower().find(q_zone.lower()) != -1
-                for z in Zone.query.join(Item).filter(Item.material_id == material.material_id).all()
-            )
-            if not has_matching_zone:
-                material_matches = False
-
-        # Purpose filter: check of er minstens één item met dit purpose bestaat
-        if filter_purpose:
-            has_matching_purpose = any(
-                i.purpose == filter_purpose for i in Item.query.filter_by(material_id=material.material_id).all()
-            )
-            if not has_matching_purpose:
-                material_matches = False
-
-        # Packaging filter: check of er minstens één item met dit packaging bestaat
-        if filter_packaging:
-            has_matching_packaging = any(
-                i.packaging == filter_packaging for i in Item.query.filter_by(material_id=material.material_id).all()
-            )
-            if not has_matching_packaging:
-                material_matches = False
-
-        # Voeg enkel materials toe die matchen
         if material_matches:
-            # If item-level filters are active, calculate filtered quantity
             has_item_filters = filter_purpose or filter_packaging or (q_zone and q_zone.strip())
-            
             if has_item_filters:
-                # Get the sum of quantities for filtered items
-                filtered_quantity = db.session.query(func.coalesce(func.sum(Item.quantity), 0)).filter(
-                    Item.material_id == material.material_id
-                )
-                if filter_purpose:
-                    filtered_quantity = filtered_quantity.filter(Item.purpose == filter_purpose)
-                if filter_packaging:
-                    filtered_quantity = filtered_quantity.filter(Item.packaging == filter_packaging)
-                if q_zone and q_zone.strip():
-                    filtered_quantity = filtered_quantity.join(Zone).filter(Zone.zone_name.ilike(f"%{q_zone}%"))
-                
+                filtered_quantity = db.session.query(func.coalesce(func.sum(Item.quantity), 0)).filter(Item.material_id == material.material_id)
+                if filter_purpose: filtered_quantity = filtered_quantity.filter(Item.purpose == filter_purpose)
+                if filter_packaging: filtered_quantity = filtered_quantity.filter(Item.packaging == filter_packaging)
+                if q_zone and q_zone.strip(): filtered_quantity = filtered_quantity.join(Zone).filter(Zone.zone_name.ilike(f"%{q_zone}%"))
                 filtered_count = filtered_quantity.scalar() or 0
-                
-                # Only add if there are actually items matching the filters
                 if filtered_count > 0:
                     brands_dict[brand_name]["material_count"] += filtered_count
-                    brands_dict[brand_name]["materials"].append({
-                        "id": material.material_id,
-                        "type": material.material_type,
-                        "description": material.description,
-                        "item_count": filtered_count,
-                    })
+                    brands_dict[brand_name]["materials"].append({"id": material.material_id, "type": material.material_type, "description": material.description, "item_count": filtered_count})
             else:
-                # No item-level filters, use total quantity
                 brands_dict[brand_name]["material_count"] += total_quantity
-                brands_dict[brand_name]["materials"].append({
-                    "id": material.material_id,
-                    "type": material.material_type,
-                    "description": material.description,
-                    "item_count": total_quantity,
-                })
+                brands_dict[brand_name]["materials"].append({"id": material.material_id, "type": material.material_type, "description": material.description, "item_count": total_quantity})
 
-    # Zet brands altijd (ook als er geen match is)
     brands = list(brands_dict.values())
-
-    # Als er een zoekopdracht is, toon dan alleen de merken die overeenkomende materialen hebben.
-    # Anders (geen zoekopdracht), toon alle merken, zodat ook materialen zonder voorraad zichtbaar blijven.
     if is_search:
-        brands = [
-            b for b in brands if b.get("materials")
-        ]
-
-    # If brand filter is active, only show that brand in sidebar
+        brands = [b for b in brands if b.get("materials")]
     if q_brand and q_brand.strip():
-        brands = [
-            b for b in brands
-            if b.get("name", "").lower() == q_brand.lower()
-        ]
+        brands = [b for b in brands if b.get("name", "").lower() == q_brand.lower()]
 
-    # Zodat geen bugs indien brand niet bestaat
-    if is_search and q_brand:
-        # check exact-case-insensitive presence in sidebar brands
-        brand_matches = any(b["name"].lower() == q_brand.lower() for b in brands)
+    return brands
 
+def _get_inventory_items(company_name, filters):
+    """Haalt de effectieve inventory items op basis van de actieve filters."""
+    # Unpack filters for clarity
+    active_material_id = filters["active_material_id"]
+    active_brand = filters["active_brand"]
+    q_brand, q_type, q_desc, q_lifecycle, q_zone, filter_purpose, filter_packaging = \
+        filters["q_brand"], filters["q_type"], filters["q_desc"], filters["q_lifecycle"], filters["q_zone"], filters["filter_purpose"], filters["filter_packaging"]
+    is_search = filters["is_search"]
 
-
-    # --- Business rule: when to show items & For You ---
-    # Manual flow = user clicked sidebar brand/material (active_brand / active_material_id) and no search filters
-    is_manual_flow = (active_brand or active_material_id) and not is_search
-
-    # For You: show only when manual brand selected AND no material_id (so brand clicked, not type)
-    # AND no filters are active
-    show_for_you = False
-    if is_manual_flow and active_brand and not active_material_id and not is_search:
-        # Only show "For You" in this exact case (manual brand click + no type chosen + no filters)
-        show_for_you = True
-    if not active_brand and not is_search:
-        show_for_you = True
-
-    # Show items:
-    # - if search flow: always show items (search may be single-field, e.g. only q_brand)
-    # - or if a specific material_id was clicked (always show items for that material)
-    # - or if brand is selected AND filters are active (combine brand + filters)
+    # Business rule: when to show items
     show_items = False
     if is_search:
         show_items = True
     elif active_material_id:
-        # Always show items when a material type is selected
         show_items = True
     elif active_brand and is_search:
-        # Brand clicked with filters active - show items matching both
         show_items = True
-    else:
-        show_items = False
 
-    # --- Page title logic ---
-    # Priority:
-    # 1) if manual material selected -> "Brand — Type"
-    # 2) if search and q_brand+q_type/q_desc -> "Brand — Type"
-    # 3) if search and q_brand only -> "Brand"
-    # 4) if search and q_type/q_desc only -> "Type"
-    # 5) if search with only zone/lifecycle/purpose/packaging -> "Inventory"
-    # 6) fallback -> "Inventory"
+    # Page title logic
     page_title = "Inventory"
     active_material = None
+    if filters["active_material_id"]:
+        active_material = Material.query.get(filters["active_material_id"])
 
-    if active_material_id:
-        active_material = Material.query.get(active_material_id)
-        if active_material:
-            page_title = f"{active_material.brand} — {active_material.material_type}"
-    elif is_search:
-        # q_brand + q_type/desc
+    if is_search:
         if q_brand and (q_type or q_desc):
-            # show brand-type (use q_type if provided, else q_desc)
-            typ = q_type if q_type else q_desc
-            page_title = f"{q_brand} — {typ}"
+            page_title = f"{q_brand} — {q_type or q_desc}"
         elif q_brand:
             page_title = q_brand
         elif q_type or q_desc:
             page_title = q_type if q_type else q_desc
-        else:
-            # only zone/lifecycle/purpose/packaging -> keep Inventory
-            page_title = "Inventory"
+        # Anders blijft de titel "Inventory", wat correct is voor een zoekopdracht op bv. enkel zone.
+    elif active_material:
+        page_title = f"{active_material.brand} — {active_material.material_type}"
     elif active_brand:
-        # manual brand clicked (no search)
         page_title = active_brand
 
-    # --- 2) Items query: build only if show_items True,
-    # and in search flow allow all filters combined (case-insensitive partial matches)
-    items = []
+    # Items query
+    items_result = []
     if show_items:
-        query = (
-            Item.query
-            .join(Material)
-            .join(Zone)
-            .filter(Material.company_name == company_name)
-        )
+        query = (Item.query.join(Material).join(Zone).filter(Material.company_name == company_name))
 
-        # If material is selected, filter by it first, then apply all other filters
         if active_material_id:
             query = query.filter(Item.material_id == active_material_id)
         
-        # Apply all filters (works for both material selection and general search)
-        # Brand filter: use active_brand if set (from sidebar), otherwise use q_brand
         if active_brand and not active_material_id:
             query = query.filter(Material.brand.ilike(f"%{active_brand}%"))
         elif q_brand and q_brand.strip():
             query = query.filter(Material.brand.ilike(f"%{q_brand}%"))
         
-        # Other material filters
-        if q_type and q_type.strip():
-            query = query.filter(Material.material_type.ilike(f"%{q_type}%"))
-        if q_desc and q_desc.strip():
-            query = query.filter(Material.description.ilike(f"%{q_desc}%"))
-        if q_lifecycle and q_lifecycle.strip():
-            query = query.filter(Material.lifecycle.ilike(f"%{q_lifecycle}%"))
-        
-        # Item-level filters
-        if q_zone and q_zone.strip():
-            query = query.filter(Zone.zone_name.ilike(f"%{q_zone}%"))
-        if filter_purpose:
-            query = query.filter(Item.purpose == filter_purpose)
-        if filter_packaging:
-            query = query.filter(Item.packaging == filter_packaging)
+        if q_type and q_type.strip(): query = query.filter(Material.material_type.ilike(f"%{q_type}%"))
+        if q_desc and q_desc.strip(): query = query.filter(Material.description.ilike(f"%{q_desc}%"))
+        if q_lifecycle and q_lifecycle.strip(): query = query.filter(Material.lifecycle.ilike(f"%{q_lifecycle}%"))
+        if q_zone and q_zone.strip(): query = query.filter(Zone.zone_name.ilike(f"%{q_zone}%"))
+        if filter_purpose: query = query.filter(Item.purpose == filter_purpose)
+        if filter_packaging: query = query.filter(Item.packaging == filter_packaging)
 
-        items = query.order_by(
-            Material.brand,
-            Material.material_type,
-            Zone.zone_name,
-            Item.purpose,
-            Item.packaging,
-            Item.item_id,      # als tie-breaker
+        items_result = query.order_by(
+            Material.brand, Material.material_type, Zone.zone_name,
+            Item.purpose, Item.packaging, Item.item_id,
         ).all()
+        
+    return items_result, page_title, active_material, show_items
 
-
-    item_count = len(items)
-
-    # No longer using session-based tracking - items are marked with is_changed in database
+def _get_for_you_data(username_pk):
+    """Haalt de 'For You' data op voor de ingelogde gebruiker."""
+    if not username_pk:
+        return []
 
     # --- EVENT LOGGING: only log when the user manually clicked a material (sidebar) ---
-    username_pk = session.get("username_pk") or session.get("username")
-    if active_material and username_pk:
-        record_material_event(
-            username=username_pk,
-            material_id=active_material.material_id,
-            event_type="view",
-        )
-
-    # --- Reserved totals per item ---
-    reserved_totals = {
-        item.item_id: sum(r.quantity for r in item.reservations)
-        for item in items
-    }
-
-    # --- Reservations (cart) list (unchanged) ---
-    reservations_raw = (
-        db.session.query(Reservation, Item, Material, Zone)
-        .join(Item, Reservation.item_id == Item.item_id)
-        .join(Material, Item.material_id == Material.material_id)
-        .join(Zone, Item.zone_id == Zone.zone_id)
-        .filter(Material.company_name == company_name)
-        .order_by(Reservation.date.desc())
-        .all()
-    )
-
-    reservations_list = [
-        {
-            "reservation_id": reservation.reservation_id,
-            "item_id": item.item_id,
-            "brand": mat.brand,
-            "type": mat.material_type,
-            "description": mat.description,
-            "zone": zone.zone_name,
-            "username": reservation.username,
-            "project": reservation.project,
-            "date": reservation.date,
-            "quantity": reservation.quantity,
-        }
-        for reservation, item, mat, zone in reservations_raw
-    ]
-
-    zones = Zone.query.filter_by(company_name=company_name).order_by(Zone.zone_name).all()
-
-    # --- FOR YOU retrieval ---
     personal_top_materials = []
     if username_pk:
         stats = (
@@ -540,53 +405,119 @@ def inventory():
                         "last_date": row.last_date,
                     }
                 )
+    return personal_top_materials
 
 
-    # --- Flags for template to render the correct item-cards layout ---
-    # manual_items_view: items are shown from a manual material selection (sidebar material click),
-    # or when searching with q_brand+q_type/q_desc or when active_material set -> show the compact/limited fields.
+@main.route("/")
+def inventory():
+    if "username" not in session:
+        return redirect(url_for("main.login"))
+
+    # 1. Verwerk alle filters uit de request en sessie
+    filters, redirect_response = _process_filters()
+    if redirect_response:
+        return redirect_response
+
+    # 2. Haal data op voor de sidebar, gefilterd volgens de actieve filters
+    brands = _get_sidebar_data(filters['company_name'], filters)
+
+    # 3. Haal de inventaris-items op die getoond moeten worden
+    items, page_title, active_material, show_items = _get_inventory_items(filters['company_name'], filters)
+    item_count = len(items)
+
+    # 4. Log een 'view' event als een specifiek materiaal is geselecteerd
+    username_pk = session.get("username_pk") or session.get("username")
+    if active_material and username_pk:
+        _record_material_event(
+            username=username_pk,
+            material_id=active_material.material_id,
+            event_type="view",
+        )
+
+    # --- Reserved totals per item ---
+    reserved_totals = {
+        item.item_id: sum(r.quantity for r in item.reservations)
+        for item in items
+    }
+
+    # 5. Haal de lijst van alle reservaties op voor het 'winkelmandje' paneel
+    reservations_raw = (
+        db.session.query(Reservation, Item, Material, Zone)
+        .join(Item, Reservation.item_id == Item.item_id)
+        .join(Material, Item.material_id == Material.material_id)
+        .join(Zone, Item.zone_id == Zone.zone_id)
+        .filter(Material.company_name == filters['company_name'])
+        .order_by(Reservation.date.desc())
+        .all()
+    )
+
+    reservations_list = [
+        {
+            "reservation_id": reservation.reservation_id,
+            "item_id": item.item_id,
+            "brand": mat.brand,
+            "type": mat.material_type,
+            "description": mat.description,
+            "zone": zone.zone_name,
+            "username": reservation.username,
+            "project": reservation.project,
+            "date": reservation.date,
+            "quantity": reservation.quantity,
+        }
+        for reservation, item, mat, zone in reservations_raw
+    ]
+
+    # 6. Haal de 'For You' data op
+    personal_top_materials = _get_for_you_data(username_pk)
+
+    # 7. Bepaal de context voor de view
+    # Wanneer moet de "For You" sectie getoond worden?
+    is_manual_flow = (filters["active_brand"] or filters["active_material_id"]) and not filters["is_search"]
+    show_for_you = False
+    if is_manual_flow and filters["active_brand"] and not filters["active_material_id"]:
+        show_for_you = True
+    if not filters["active_brand"] and not filters["is_search"]:
+        show_for_you = True
+
+    # Vlaggen voor de template om de juiste layout te renderen
     manual_items_view = False
-    if (not is_search and active_material_id) or active_material:
+    if (not filters["is_search"] and filters["active_material_id"]) or active_material:
         manual_items_view = True
     
     search_brand = False
-    if is_search and q_brand:
+    if filters["is_search"] and filters["q_brand"]:
         search_brand = True
     
-
+    # 8. Render de finale template met alle verzamelde data
     return render_template(
         "inventory.html",
         username=session["username"],
-        company=company_name,
+        company=filters['company_name'],
         brands=brands,
         items=items,
-        active_brand=active_brand,
+        active_brand=filters["active_brand"],
         active_material=active_material,
-        active_material_id=active_material_id,
+        active_material_id=filters["active_material_id"],
         item_count=item_count,
         reserved_totals=reserved_totals,
         reservations_list=reservations_list,
-        zones=zones,
-        q_type=q_type,
-        q_desc=q_desc,
-        q_brand=q_brand,
-        q_zone=q_zone,
-        q_lifecycle=q_lifecycle,
-        filter_purpose=filter_purpose,
-        filter_packaging=filter_packaging,
+        zones=Zone.query.filter_by(company_name=filters['company_name']).order_by(Zone.zone_name).all(),
+        q_type=filters["q_type"], q_desc=filters["q_desc"], q_brand=filters["q_brand"],
+        q_zone=filters["q_zone"], q_lifecycle=filters["q_lifecycle"],
+        filter_purpose=filters["filter_purpose"], filter_packaging=filters["filter_packaging"],
         personal_top_materials=personal_top_materials,
         show_items=show_items,
         show_for_you=show_for_you,
-        is_search=is_search,
+        is_search=filters["is_search"],
         manual_items_view=manual_items_view,
-        search_brand =search_brand,
-
+        search_brand=search_brand,
         page_title=page_title,
     )
 
-# ---------------------------------------------------------------------------
-# ADD INVENTORY ITEM (material + zone + item)
-# ---------------------------------------------------------------------------
+# ===========================================================================
+# API-LIKE ROUTES (voor AJAX-calls vanuit de frontend)
+# ===========================================================================
+
 @main.route("/brand_suggest")
 def brand_suggest():
     q = (request.args.get("q") or "").strip()
@@ -684,41 +615,49 @@ def item_details():
     
     return jsonify({})
 
+# ===========================================================================
+# ITEM ROUTES
+# ===========================================================================
+
 @main.route("/add_item", methods=["GET", "POST"])
 def add_item():
     if request.method == "POST":
-        company_name = session.get("company_name")
+        company_name = _get_current_company_name()
 
         # --- Material data ---
         brand = request.form["brand"].strip()
         material_type = request.form["material_type"].strip()
         description = request.form["description"].strip()
+
+        # Beschrijving is altijd verplicht. De frontend validatie (HTML required attribuut)
+        # zou dit al moeten afvangen, maar dit is een extra server-side garantie.
+        if not description:
+            flash("Description is a required field.", "error")
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                # Render de partial opnieuw met de ingevulde data en een foutmelding.
+                return render_template("add_item_partial.html", **request.form), 400
+            return render_template("add_item.html", **request.form)
+
         lifecycle = request.form.get("lifecycle") or None
         
         try:
             price_raw = request.form.get("price")
             price = float(price_raw.replace(",", ".")) if price_raw else None
             quantity = int(request.form["quantity"])
-            
+
             # Validate price is not negative
             if price is not None and price < 0:
-                flash("Price must be greater than or equal to 0.", "error")
-                if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-                    return render_template("add_item_partial.html"), 400
-                return redirect(url_for("main.inventory"))
-            
+                return _handle_ajax_form_error("Price must be greater than or equal to 0.",
+                                               "add_item_partial.html", "add_item.html", **request.form)
+
             # Validate quantity is not negative
             if quantity < 0:
-                flash("Quantity must be positive.", "error")
-                if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-                    return render_template("add_item_partial.html"), 400
-                return redirect(url_for("main.inventory"))
+                return _handle_ajax_form_error("Quantity must be a non-negative number.",
+                                               "add_item_partial.html", "add_item.html", **request.form)
                 
         except (ValueError, TypeError):
-            flash("Invalid number format for price or quantity.", "error")
-            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-                return render_template("add_item_partial.html"), 400
-            return redirect(url_for("main.inventory"))
+            return _handle_ajax_form_error("Invalid number format for price or quantity.",
+                                           "add_item_partial.html", "add_item.html", **request.form)
 
         # --- Material Logic: Find, Create, or Update ---
         material = Material.query.filter_by(
@@ -759,23 +698,16 @@ def add_item():
                 return redirect(url_for("main.inventory"))
 
         # If quantity is 0, we just created/updated the material. Commit and leave.
+        # Als de hoeveelheid 0 is, hebben we enkel de materiaal-info opgeslagen/geüpdatet.
+        # We voegen dan geen item toe en tonen een informatieve boodschap. Dit is de correcte werking
+        # die de gebruiker in staat stelt om een materiaal aan te maken zonder direct een item toe te voegen.
         if quantity == 0:
             db.session.commit()
             flash("Material information saved. No item added as quantity was 0.", "info")
             return redirect(url_for("main.inventory", material_id=material.material_id))
 
         # --- Zone data ---
-        zone_name = request.form["zone_name"].strip().upper()
-
-        zone = Zone.query.filter_by(
-            company_name=company_name,
-            zone_name=zone_name,
-        ).first()
-
-        if zone is None:
-            zone = Zone(zone_name=zone_name, company_name=company_name)
-            db.session.add(zone)
-            db.session.flush()
+        zone = _find_or_create_zone(company_name, request.form["zone_name"].strip().upper())
 
         # --- Item data ---
         purpose = request.form["purpose"]
@@ -830,10 +762,11 @@ def add_item():
     
     return render_template("add_item.html")
 
-# USE / RESERVE ITEM
-# ---------------------------------------------------------------------------
 @main.route("/item/<int:item_id>/use", methods=["GET", "POST"])
 def use_item(item_id: int):
+    """
+    Verwerkt het reserveren (vroeger 'use') van een item.
+    """
     item = Item.query.get_or_404(item_id)
     available = item.quantity
 
@@ -878,28 +811,20 @@ def use_item(item_id: int):
             flash(f"{quantity} item(s) reserved successfully.", "success")
 
             # 👉 reserve-event loggen
-            username_pk = session.get("username_pk") or username
-            record_material_event(username=username_pk, material_id=item.material_id, event_type="reserve")
-            return redirect_back()
+            _record_material_event(username=user_exists.username, material_id=item.material_id, event_type="reserve")
+            return _redirect_back()
         except ValueError as e:
             db.session.rollback()
             if request.headers.get("X-Requested-With") == "XMLHttpRequest":
                 return render_template("use_item_partial.html", item=item, available=available, error=str(e)), 400
-            return render_template("use_item.html", item=item, available=available, error=str(e))
+            return render_template("use_item.html", item=item, available=available, error=str(e), is_full_page=True)
 
     # GET request
     if request.headers.get("X-Requested-With") == "XMLHttpRequest":
         return render_template("use_item_partial.html", item=item, available=available)
     
-    return render_template("use_item.html", item=item, available=available)
+    return render_template("use_item.html", item=item, available=available, is_full_page=True)
 
-
-
-
-
-# ---------------------------------------------------------------------------
-# INLINE QUANTITY UPDATE
-# ---------------------------------------------------------------------------
 @main.route("/item/<int:item_id>/quantity", methods=["POST"])
 def update_quantity(item_id: int):
     """Update quantity from the inline form on the inventory page."""
@@ -927,9 +852,6 @@ def update_quantity(item_id: int):
     return redirect(url_for("main.inventory", brand=brand, material_id=material_id))
 
 
-# ---------------------------------------------------------------------------
-# DELETE ITEM
-# ---------------------------------------------------------------------------
 @main.route("/item/<int:item_id>/delete", methods=["POST"])
 def delete_item(item_id: int):
     """Delete an item if it has no reservations."""
@@ -950,9 +872,10 @@ def delete_item(item_id: int):
     return redirect(url_for("main.edit_material", material_id=material_id))
 
 
-# ---------------------------------------------------------------------------
-# EDIT MATERIAL
-# ---------------------------------------------------------------------------
+# ===========================================================================
+# MATERIAL ROUTES
+# ===========================================================================
+
 @main.route("/material/<int:material_id>/edit", methods=["GET", "POST"])
 def edit_material(material_id: int):
     """Edit brand / type / description / lifecycle / price of a material."""
@@ -1064,12 +987,9 @@ def edit_material(material_id: int):
     if request.headers.get("X-Requested-With") == "XMLHttpRequest":
         return render_template("edit_material_partial.html", material=material, has_items=has_items)
 
-    return render_template("edit_material.html", material=material, has_items=has_items)
+    return render_template("edit_material.html", material=material, has_items=has_items, is_full_page=True)
 
 
-# ---------------------------------------------------------------------------
-# DELETE MATERIAL
-# ---------------------------------------------------------------------------
 @main.route("/material/<int:material_id>/delete", methods=["POST"])
 def delete_material(material_id: int):
     """Delete a material and all its items from the database."""
@@ -1097,9 +1017,6 @@ def delete_material(material_id: int):
         return redirect(url_for("main.edit_material", material_id=material_id))
 
 
-# ---------------------------------------------------------------------------
-# EDIT ITEM
-# ---------------------------------------------------------------------------
 @main.route("/item/<int:item_id>/edit", methods=["GET", "POST"])
 def edit_item(item_id: int):
     """Edit zone, purpose, packaging and comment of an item."""
@@ -1118,17 +1035,7 @@ def edit_item(item_id: int):
     if request.method == "POST":
         # Zone is free text: look it up or create it.
         zone_name = request.form["zone_name"].strip().upper()
-        company_name = item.material.company_name
-
-        zone = Zone.query.filter_by(
-            company_name=company_name,
-            zone_name=zone_name,
-        ).first()
-
-        if zone is None:
-            zone = Zone(zone_name=zone_name, company_name=company_name)
-            db.session.add(zone)
-            db.session.flush()
+        zone = _find_or_create_zone(company_name, zone_name)
 
         # Check for existing item with the new properties (UC3)
         existing_item = Item.query.filter(
@@ -1219,12 +1126,13 @@ def edit_item(item_id: int):
         return render_template("edit_item_partial.html", item=item, zones=zones)
     
     # If accessed directly (not via AJAX), return full page
-    return render_template("edit_item.html", item=item, zones=zones)
+    return render_template("edit_item.html", item=item, zones=zones, is_full_page=True)
 
 
-# ---------------------------------------------------------------------------
-# RETURN RESERVED ITEM (UNIFIED & MULTI-ACTION)
-# ---------------------------------------------------------------------------
+# ===========================================================================
+# RESERVATION ROUTES
+# ===========================================================================
+
 @main.route("/reservation/<int:reservation_id>/return", methods=["GET", "POST"])
 def return_item(reservation_id):
     """
@@ -1267,7 +1175,7 @@ def return_item(reservation_id):
                 company_name = item.material.company_name
                 zones = Zone.query.filter_by(company_name=company_name).order_by(Zone.zone_name).all()
                 return render_template("return_item_partial.html", reservation=reservation, item=item, zones=zones, error=error_msg), 400
-            flash(error_msg, "error")
+            flash(error_msg, "error") # flash() is called inside the helper
             return redirect(url_for(".return_item", reservation_id=reservation_id))
 
         # --- Verwerk actie: Terug naar stock ---
@@ -1280,20 +1188,11 @@ def return_item(reservation_id):
             # Items worden niet teruggestort in de voorraad, maar gewoon afgeschreven.
             flash(f"{qty_discard} item(s) discarded.", "success")
 
-        # No longer using session-based tracking - using database field instead
-
         # --- Verwerk actie: Markeer als gewijzigd ---
         if qty_changed > 0:
             purpose = request.form.get("purpose")
             packaging = request.form.get("packaging")
-            zone_name = request.form.get("zone_name", "").strip().upper()
-
-            company_name = item.material.company_name
-            zone = Zone.query.filter_by(zone_name=zone_name, company_name=company_name).first()
-            if zone is None:
-                zone = Zone(zone_name=zone_name, company_name=company_name)
-                db.session.add(zone)
-                db.session.flush()
+            zone = _find_or_create_zone(item.material.company_name, request.form.get("zone_name", "").strip().upper())
 
             # Zoek of er al een item met exact dezelfde nieuwe eigenschappen bestaat
             existing_item = Item.query.filter_by(
@@ -1360,12 +1259,9 @@ def return_item(reservation_id):
     if request.headers.get("X-Requested-With") == "XMLHttpRequest":
         return render_template("return_item_partial.html", reservation=reservation, item=item, zones=zones)
 
-    return render_template("return_item.html", reservation=reservation, item=item, zones=zones)
+    return render_template("return_item.html", reservation=reservation, item=item, zones=zones, is_full_page=True)
 
 
-# ---------------------------------------------------------------------------
-# DELETE RESERVATION (cart panel)
-# ---------------------------------------------------------------------------
 @main.route("/reservation/delete", methods=["POST"])
 def delete_reservation():
     """
@@ -1387,12 +1283,13 @@ def delete_reservation():
     db.session.delete(reservation)
     db.session.commit()
 
-    return redirect_back()
+    return _redirect_back()
 
 
-# ---------------------------------------------------------------------------
-# FOR YOU ACTIONS
-# ---------------------------------------------------------------------------
+# ===========================================================================
+# 'FOR YOU' ROUTES
+# ===========================================================================
+
 @main.route("/for_you/clear", methods=["POST"])
 def clear_for_you():
     """Alle persoonlijke aanbevelingen wissen voor de ingelogde gebruiker."""

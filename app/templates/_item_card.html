@@ -1,0 +1,129 @@
+{#
+    Dit is een partial voor een enkele item-kaart.
+    Het wordt aangeroepen vanuit de loop in inventory.html.
+    Dit maakt de hoofdtemplate veel schoner en centraliseert de kaart-logica.
+#}
+{% set reserved_total = reserved_totals.get(item.item_id, 0) %}
+<article class="item-card">
+    <div class="item-main">
+        {# --- Header variations depending on context --- #}
+        {% if manual_items_view %}
+            {# Manual material view: Title is already at the top of the page, so no title here. #}
+            <h3 class="item-title"></h3>
+        {% elif search_brand %}
+            {# Brand search: Show type, as brand is already in the page title. #}
+            <h3 class="item-title">{{ item.material.material_type }}</h3>
+        {% else %}
+            {# General search/view: Show full material title. #}
+            <h3 class="item-title">{{ item.material.brand }} — {{ item.material.material_type }}</h3>
+            <div class="item-subtitle-row">
+                <p class="item-subtitle">{{ item.material.description }}</p>
+            </div>
+        {% endif %}
+
+        {% if item.is_changed %}
+            <span class="chip chip-changed" title="This item was returned with changed properties.">Changed</span>
+        {% endif %}
+
+        {# --- The standard meta row (always present) --- #}
+        <div class="item-meta-row item-meta-spacing">
+            <span><strong>Purpose:</strong> {{ item.purpose }}</span>
+            <span><strong>Packaging:</strong> {{ item.packaging }}</span>
+            <span><strong>Zone:</strong> {{ item.zone.zone_name }}</span>
+        </div>
+
+        {# Quantity / reserved block #}
+        <div class="item-meta-row item-meta-row-main">
+            <span class="quantity-block">
+                <strong>Quantity:</strong>
+                <form class="quantity-form"
+                      method="post"
+                      action="{{ url_for('main.update_quantity', item_id=item.item_id, brand=active_brand, material_id=active_material_id) }}">
+                    <input type="number" name="quantity" min="0" value="{{ item.quantity }}" data-original-value="{{ item.quantity }}">
+                    <button type="button" class="quantity-cancel" title="Cancel changes" style="display: none;">×</button>
+                    <button type="submit" class="quantity-save">Save</button>
+                </form>
+            </span>
+
+            <span class="reserved-block">
+                <strong>Reserved quantity:</strong>
+                <button type="button" class="link-button reserved-link" data-modal-target="reservations-{{ item.item_id }}">
+                    {{ reserved_total }}
+                </button>
+            </span>
+        </div>
+
+        {# More details toggle/button #}
+        <button class="btn-link" type="button" data-toggle-details="details-{{ item.item_id }}">More details</button>
+
+        <div class="item-details" id="details-{{ item.item_id }}">
+            <div class="item-meta-row">
+                <span><strong>Price:</strong>
+                    {% if item.material.price is not none %}€ {{ "%.2f"|format(item.material.price) }}{% else %}–{% endif %}
+                </span>
+            </div>
+            <div class="item-meta-row">
+                <span><strong>Lifecycle:</strong> {{ item.material.lifecycle or "–" }}</span>
+            </div>
+            <div class="item-meta-row">
+                <span><strong>Comment:</strong> {{ item.display_comment or "No comment" }}</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="item-actions">
+        <button type="button"
+                class="btn-primary"
+                data-modal-target="reserveItemModal"
+                data-item-id="{{ item.item_id }}">Reserve</button>
+
+        <div class="item-actions-secondary">
+            <button type="button"
+                    class="icon-small"
+                    data-modal-target="editItemModal"
+                    data-item-id="{{ item.item_id }}"
+                    title="Edit item">✎</button>
+        </div>
+    </div>
+</article>
+
+{# ---- RESERVATIONS MODAL FOR THIS ITEM ---- #}
+<div class="return-modal" id="reservations-{{ item.item_id }}">
+    <div class="modal-backdrop" data-modal-close></div>
+    <div class="modal-dialog">
+        <div class="modal-header">
+            <h2>Reservations</h2>
+            <button type="button" class="modal-close" data-modal-close>×</button>
+        </div>
+        <div class="modal-body">
+            {% if item.reservations %}
+                <table class="reservations-table">
+                    <thead>
+                        <tr>
+                            <th>User</th>
+                            <th>Project</th>
+                            <th>Date</th>
+                            <th>Quantity</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in item.reservations %}
+                            <tr>
+                                <td>{{ r.username }}</td>
+                                <td>{{ r.project or "-" }}</td>
+                                <td>{{ r.date.strftime("%Y-%m-%d") }}</td>
+                                <td>{{ r.quantity }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <div class="empty-state" style="padding: 40px 20px;">
+                    <div class="empty-state-icon" style="font-size: 48px;"><span class="material-icons">event_busy</span></div>
+                    <div class="empty-state-title" style="font-size: 16px;">No reservations</div>
+                    <div class="empty-state-message" style="font-size: 13px;">This item has no active reservations</div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>

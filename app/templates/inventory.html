@@ -79,17 +79,10 @@
             </h1>
 
             {% if active_material %}
-                <a href="{{ url_for('main.edit_material', material_id=active_material.material_id,
-                                    brand=active_brand,
-                                    material_id_for_return=active_material_id, 
-                                    q_brand=q_brand, q_type=q_type,
-                                    q_desc=q_desc, q_zone=q_zone,
-                                    q_lifecycle=q_lifecycle,
-                                    filter_purpose=filter_purpose,
-                                    filter_packaging=filter_packaging) }}"
-                   class="icon-small icon-small-outline edit-material-btn"
-                   title="Edit material"
-                   id="edit-material-btn">
+                <a href="{{ url_for('main.edit_material', material_id=active_material.material_id) }}"
+                   class="icon-small icon-small-outline"
+                   data-modal-target="editMaterialModal"
+                   title="Edit material">
                     ✎
                 </a>
             {% endif %}
@@ -193,169 +186,7 @@
 
 <div class="item-list">
     {% for item in items %}
-        {% set reserved_total = reserved_totals.get(item.item_id, 0) %}
-        <article class="item-card">
-            <div class="item-main">
-                {# --- Header variations depending on context --- #}
-
-                {% if manual_items_view %}
-                    {# Manual material view (zodat niet in else:)#}
-                    <h3 class="item-title">
-                    </h3>
-                
-                {% elif search_brand %}
-                    {# brand search (want Brand open)#}
-                    <h3 class="item-title">
-                        {{ item.material.material_type }}
-                    </h3>
-
-                {% else %}
-                    <h3 class="item-title">
-                        {{ item.material.brand }} — {{ item.material.material_type }}
-                    </h3>
-                    <div class="item-subtitle-row">
-                        <p class="item-subtitle">
-                            {{ item.material.description }}
-                        </p>
-                    </div>
-
-                {% endif %}
-
-
-                    {% if item.is_changed %}
-                    <span class="chip chip-changed" title="Changed">
-                        Changed
-                    </span>
-                    {% endif %}
-
-                {# --- The standard meta row (always present) --- #}
-                <div class="item-meta-row item-meta-spacing">
-                    <span><strong>Purpose:</strong> {{ item.purpose }}</span>
-                    <span><strong>Packaging:</strong> {{ item.packaging }}</span>
-                    <span><strong>Zone:</strong> {{ item.zone.zone_name }}</span>
-                </div>
-
-                {# Quantity / reserved block (keep as you had it) #}
-                <div class="item-meta-row item-meta-row-main">
-                    <span class="quantity-block">
-                        <strong>Quantity:</strong>
-                        <form class="quantity-form"
-                            method="post"
-                            action="{{ url_for('main.update_quantity',
-                                                item_id=item.item_id,
-                                                brand=active_brand,
-                                                material_id=active_material_id) }}">
-                            <input type="number"
-                                name="quantity"
-                                min="0"
-                                value="{{ item.quantity }}"
-                                data-original-value="{{ item.quantity }}">
-                            <button type="button" class="quantity-cancel" title="Cancel changes" style="display: none;">×</button>
-                            <button type="submit" class="quantity-save">Save</button>
-                        </form>
-                    </span>
-
-                    <span class="reserved-block">
-                        <strong>Reserved quantity:</strong>
-                        <button type="button"
-                                class="link-button reserved-link"
-                                data-modal-target="reservations-{{ item.item_id }}">
-                            {{ reserved_totals.get(item.item_id, 0) }}
-                        </button>
-                    </span>
-                </div>
-
-                {# More details toggle/button (keep existing) #}
-
-                <button class="btn-link"
-                        type="button"
-                        data-toggle-details="details-{{ item.item_id }}">
-                    More details
-                </button>
-
-                <div class="item-details" id="details-{{ item.item_id }}">
-                    <div class="item-meta-row">
-                        <span><strong>Price:</strong>
-                            {% if item.material.price is not none %}
-                                € {{ "%.2f"|format(item.material.price) }}
-                            {% else %}
-                                –
-                            {% endif %}
-                        </span>
-                    </div>
-
-                    <div class="item-meta-row">
-                        <span><strong>Lifecycle:</strong>
-                            {{ item.material.lifecycle or "–" }}
-                        </span>
-                    </div>
-
-                    <div class="item-meta-row">
-                        <span><strong>Comment:</strong> {{ item.display_comment or "No comment" }}</span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="item-actions">
-                <button type="button"
-                        class="btn-primary reserve-item-btn"
-                        data-item-id="{{ item.item_id }}"
-                        data-brand="{{ active_brand or '' }}"
-                        data-material-id="{{ active_material_id or '' }}">Reserve</button>
-
-                <div class="item-actions-secondary">
-                    <button type="button"
-                            class="icon-small edit-item-btn"
-                            data-item-id="{{ item.item_id }}"
-                            data-brand="{{ active_brand or '' }}"
-                            data-material-id="{{ active_material_id or '' }}"
-                            title="Edit item">✎</button>
-                </div>
-            </div>
-        </article>
-
-        {# ---- RESERVATIONS MODAL VOOR DIT ITEM ---- #}
-        <div class="modal" id="reservations-{{ item.item_id }}">
-            <div class="modal-backdrop" data-modal-close></div>
-            <div class="modal-dialog">
-                <div class="modal-header">
-                    <h2>Reservations</h2>
-                    <button type="button" class="modal-close" data-modal-close>×</button>
-                </div>
-                <div class="modal-body">
-                    {% if item.reservations %}
-                        <table class="reservations-table">
-                            <thead>
-                            <tr>
-                                <th>User</th>
-                                <th>Project</th>
-                                <th>Date</th>
-                                <th>Quantity</th>
-                            </tr>
-                            </thead>
-                            <tbody>
-                            {% for r in item.reservations %}
-                                <tr>
-                                    <td>{{ r.username }}</td>
-                                    <td>{{ r.project or "-" }}</td>
-                                    <td>{{ r.date.strftime("%Y-%m-%d") }}</td>
-                                    <td>{{ r.quantity }}</td>
-                                </tr>
-                            {% endfor %}
-                            </tbody>
-                        </table>
-                    {% else %}
-                        <div class="empty-state" style="padding: 40px 20px;">
-                            <div class="empty-state-icon" style="font-size: 48px;">
-                                <span class="material-icons">event_busy</span>
-                            </div>
-                            <div class="empty-state-title" style="font-size: 16px;">No reservations</div>
-                            <div class="empty-state-message" style="font-size: 13px;">This item has no active reservations</div>
-                        </div>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
+        {% include "_item_card.html" %}
     {% endfor %}
 </div>
 {% endif %} {# EINDE CONDITIE GEWONE ITEM-LIST #}
@@ -494,12 +325,13 @@
                             </td>
 
                             <td class="actions">
-                                <a href="{{ url_for('main.return_item', reservation_id=r.reservation_id) }}"
-                                   class="icon-btn return-btn"
+                                <button type="button"
+                                   class="icon-btn"
+                                   data-modal-target="returnModal"
                                    data-reservation-id="{{ r.reservation_id }}"
                                    title="Process reservation">
                                     <span class="material-icons">assignment_return</span>
-                                </a>
+                                </button>
                             </td>
                         </tr>
                     {% endfor %}
@@ -595,469 +427,17 @@
 
 <script>
 
-// Attach handlers for the return modal (runs after the partial is injected)
-function initReturnModalContent() {
-    const container = document.getElementById("returnModalContent");
-    if (!container) return;
-
-    const qtyInputs = container.querySelectorAll(".quantity-input");
-    const totalReservedEl = container.querySelector("#total-reserved");
-    const remainingQtyEl = container.querySelector("#remaining-qty");
-    const changedFields = container.querySelector("#changed-fields");
-    const qtyChangedInput = container.querySelector("#qty_mark_changed");
-    const applyBtn = container.querySelector("#apply-button");
-
-    if (totalReservedEl && remainingQtyEl) {
-        const totalReserved = parseInt(totalReservedEl.textContent, 10) || 0;
-
-        function updateTotal() {
-            let totalProcessed = 0;
-            qtyInputs.forEach(input => {
-                const val = parseInt(input.value, 10);
-                totalProcessed += isNaN(val) ? 0 : val;
-            });
-            const remaining = totalReserved - totalProcessed;
-            remainingQtyEl.textContent = remaining;
-            remainingQtyEl.style.color = remaining < 0 ? "red" : "inherit";
-        }
-
-        qtyInputs.forEach(input => input.addEventListener("input", updateTotal));
-        updateTotal(); // Initial call
-    }
-
-    // --- VALIDATION ---
-    const form = container.querySelector('form');
-    if (!form) return;
-
-    // --- DYNAMIC REQUIRED FIELDS & VALIDATION ---
-    if (qtyChangedInput && changedFields) {
-        // Correctly select the inputs inside the 'changed' section
-        const newZoneInput = changedFields.querySelector('input[name="zone_name"]');
-        const newPurposeInput = changedFields.querySelector('select[name="purpose"]');
-        const newPackagingInput = changedFields.querySelector('select[name="packaging"]');
-
-        qtyChangedInput.addEventListener("input", () => {
-            const val = parseInt(qtyChangedInput.value, 10) || 0;
-            const isRequired = val > 0;
-
-            changedFields.style.display = isRequired ? "block" : "none";
-
-            // Set required attribute dynamically based on the quantity
-            if (newZoneInput) newZoneInput.required = isRequired;
-            if (newPurposeInput) newPurposeInput.required = isRequired;
-            if (newPackagingInput) newPackagingInput.required = isRequired;
-        });
-    }
-
-    // Generic validation logic for the whole form
-    const fieldsToValidate = form.querySelectorAll('input, select, textarea');
-
-    fieldsToValidate.forEach(function(field) {
-        field.addEventListener('invalid', function(e) {
-            e.preventDefault();
-            if (this.validity.valueMissing) {
-                this.setCustomValidity('Please fill in this field.');
-            } else if (this.validity.rangeUnderflow) {
-                this.setCustomValidity('Value must be greater than or equal to 0.');
-            } else {
-                this.setCustomValidity('');
-            }
-            this.reportValidity();
-        });
-
-        field.addEventListener('input', function() {
-            this.setCustomValidity('');
-        });
-    });
-
-    form.addEventListener('submit', function(e) {
-        if (!form.checkValidity()) {
-            e.preventDefault();
-            const firstInvalid = form.querySelector(':invalid');
-            if (firstInvalid) {
-                firstInvalid.focus();
-                firstInvalid.reportValidity();
-            }
-        }
-    });
-}
-
-// Attach handlers for the add item modal (runs after the partial is injected)
-function initAddItemModalContent() {
-    // Add a style tag for the autofill class, if it doesn't exist
-    if (!document.querySelector('[data-autofill-style]')) {
-        const style = document.createElement('style');
-        style.setAttribute('data-autofill-style', 'true'); // marker to prevent duplicates
-        style.innerHTML = `.autofilled { background-color: #f2f2f2 !important; }`;
-        document.head.appendChild(style);
-    }
-
-    // --- GET ALL ELEMENTS ---
-    const brandInput = document.getElementById("brand");
-    const brandSuggestionsBox = document.getElementById("brand_suggestions");
-    const typeInput = document.getElementById('material_type');
-    const descInput = document.getElementById('description');
-    const priceInput = document.getElementById('price');
-    const lifecycleInput = document.getElementById('lifecycle');
-    const commentInput = document.getElementById('comment');
-    const zoneInput = document.getElementById('zone_name');
-    const purposeInput = document.getElementById('purpose');
-    const packagingInput = document.getElementById('packaging');
-    const quantityInput = document.getElementById('quantity');
-
-    // Check if the form elements are present
-    if (descInput) {
-        descInput.required = true;
-    }
-
-    if (!brandInput || !typeInput) {
-        return;
-    }
-
-    // Set min attribute for price validation
-    if (priceInput) {
-        priceInput.setAttribute('min', '0');
-    }
-
-    // --- BRAND SUGGESTIONS ---
-    brandInput.addEventListener("input", function () {
-        const q = this.value.trim();
-
-        if (q.length === 0) {
-            brandSuggestionsBox.innerHTML = "";
-            return;
-        }
-
-        fetch(`/brand_suggest?q=${encodeURIComponent(q)}`)
-            .then(r => r.json())
-            .then(data => {
-                if (!data.suggestions.length) {
-                    brandSuggestionsBox.innerHTML = "";
-                    return;
-                }
-
-                brandSuggestionsBox.innerHTML = data.suggestions
-                    .map(s => `<div class="suggestion" style="cursor:pointer; padding: 2px 0;">${s}</div>`)
-                    .join("");
-
-                brandSuggestionsBox.onclick = (event) => {
-                    const suggestion = event.target.closest('.suggestion');
-                    if (suggestion) {
-                        brandInput.value = suggestion.textContent;
-                        brandSuggestionsBox.innerHTML = "";
-                        brandInput.dispatchEvent(new Event('input', { bubbles: true }));
-                    }
-                };
-            });
-    });
-
-    // --- AUTO-FILL LOGIC ---
-    const materialAutofillElements = [descInput, priceInput, lifecycleInput];
-    const itemAutofillElements = [commentInput];
-
-    function setAutofilled(element, value) {
-        if (element.value !== value) { element.value = value; }
-        element.classList.add('autofilled');
-        element.addEventListener('input', function onFirstInput() {
-            element.classList.remove('autofilled');
-            element.removeEventListener('input', onFirstInput);
-        }, { once: true });
-    }
-
-    function clearAutofilled(elements) {
-        elements.forEach(el => {
-            if (el.classList.contains('autofilled')) {
-                el.value = '';
-                el.classList.remove('autofilled');
-            }
-        });
-    }
-
-    async function fetchMaterialDetails() {
-        const brand = brandInput.value.trim();
-        const type = typeInput.value.trim();
-        if (!brand || !type) { clearAutofilled(materialAutofillElements); return; }
-        try {
-            const response = await fetch(`/material_details?brand=${encodeURIComponent(brand)}&type=${encodeURIComponent(type)}`);
-            if (!response.ok) { clearAutofilled(materialAutofillElements); return; }
-            const data = await response.json();
-            if (data && data.description) {
-                setAutofilled(descInput, data.description || '');
-                setAutofilled(priceInput, data.price || '');
-                setAutofilled(lifecycleInput, data.lifecycle || '');
-            } else { clearAutofilled(materialAutofillElements); }
-        } catch (error) { console.error('Error fetching material details:', error); clearAutofilled(materialAutofillElements); }
-    }
-
-    async function fetchItemDetails() {
-        const params = new URLSearchParams({ brand: brandInput.value.trim(), type: typeInput.value.trim(), zone: zoneInput.value.trim(), purpose: purposeInput.value, packaging: packagingInput.value });
-        if (!params.get('brand') || !params.get('type') || !params.get('zone') || !params.get('purpose') || !params.get('packaging')) { clearAutofilled(itemAutofillElements); return; }
-        try {
-            const response = await fetch(`/item_details?${params.toString()}`);
-            if (!response.ok) { clearAutofilled(itemAutofillElements); return; }
-            const data = await response.json();
-            if (data && data.comment) { setAutofilled(commentInput, data.comment); } else { clearAutofilled(itemAutofillElements); }
-        } catch (error) { console.error('Error fetching item details:', error); clearAutofilled(itemAutofillElements); }
-    }
-
-    // Add event listeners
-    brandInput.addEventListener('input', fetchMaterialDetails);
-    typeInput.addEventListener('input', fetchMaterialDetails);
-    brandInput.addEventListener('input', fetchItemDetails);
-    typeInput.addEventListener('input', fetchItemDetails);
-    zoneInput.addEventListener('input', fetchItemDetails);
-    purposeInput.addEventListener('change', fetchItemDetails);
-    packagingInput.addEventListener('change', fetchItemDetails);
-
-    // --- CONDITIONAL REQUIRED FIELDS ---
-    // Makes item-specific fields (zone, purpose, packaging) optional if quantity is 0.
-    if (quantityInput && zoneInput && purposeInput && packagingInput && commentInput) { // Makes item-specific fields optional and visually disabled if quantity is 0.
-        const requiredFields = [zoneInput, purposeInput, packagingInput];
-        const allConditionalFields = [zoneInput, purposeInput, packagingInput, commentInput];
-        const fieldGroups = allConditionalFields.map(el => el ? el.closest('.form-group') : null);
-
-        const updateItemFieldsState = () => {
-            const isZero = quantityInput.value === '0';
-
-            // Visually fade and disable all conditional fields
-            fieldGroups.forEach(group => {
-                if (group) group.style.opacity = isZero ? '0.5' : '1';
-            });
-            allConditionalFields.forEach(field => {
-                if (field) field.disabled = isZero;
-            });
-
-            // Toggle the 'required' attribute only for the required fields
-            requiredFields.forEach(field => {
-                if (field) field.required = !isZero;
-            });
-        };
-
-        quantityInput.addEventListener('input', updateItemFieldsState);
-        updateItemFieldsState(); // Set initial state on load
-    }
-
-    // --- VALIDATION ---
-    // Zorgt voor validatie van de velden in de juiste volgorde.
-    const form = document.querySelector('#addItemModalContent form');
-    if (form) {
-        // Dit deel stelt aangepaste validatieboodschappen in.
-        // Het toont de pop-up niet zelf.
-        const fieldsToValidate = form.querySelectorAll('input, select, textarea');
-        fieldsToValidate.forEach(function(field) {
-            field.addEventListener('invalid', function() {
-                if (this.validity.valueMissing) {
-                    if (this.tagName.toLowerCase() === 'select') {
-                        this.setCustomValidity('Select an option.');
-                    } else {
-                        this.setCustomValidity('Fill in this field.');
-                    }
-                } else if (this.validity.rangeUnderflow) {
-                    this.setCustomValidity('Invalid input.');
-                } else {
-                    // Standaard browser boodschap voor andere fouten
-                    this.setCustomValidity('');
-                }
-            });
-
-            // Wanneer de gebruiker input geeft, wordt de boodschap gewist.
-            field.addEventListener('input', function() {
-                this.setCustomValidity('');
-            });
-        });
-
-        // Dit deel regelt wat er gebeurt bij het submitten van een ongeldig formulier.
-        form.addEventListener('submit', function(e) {
-            // Als het formulier al geldig is, verstuur het dan.
-            if (form.checkValidity()) {
-                return;
-            }
-
-            // Stop de submit, want het formulier is ongeldig.
-            e.preventDefault();
-
-            // Bepaal de gewenste volgorde voor validatie.
-            const fieldOrder = [
-                'brand', 'material_type', 'description', 'quantity', 
-                'zone_name', 'purpose', 'packaging'
-            ];
-
-            // Zoek het eerste ongeldige veld in de opgegeven volgorde.
-            for (const fieldName of fieldOrder) {
-                const field = form.querySelector(`[name="${fieldName}"]`);
-                if (field && !field.checkValidity()) {
-                    field.focus();
-                    field.reportValidity(); // Toon de validatieboodschap
-                    return; // Stop na de eerste fout
-                }
-            }
-
-            // Fallback voor het geval een ander veld ongeldig is.
-            if (!form.checkValidity()) {
-                const firstInvalid = form.querySelector(':invalid');
-                if (firstInvalid) {
-                    firstInvalid.focus();
-                    firstInvalid.reportValidity();
-                }
-            }
-        });
-    }
-}
-
-
-// Attach handlers for the edit material modal
-function initEditMaterialModalContent() {
-    // Add a style tag for the autofill class
-    if (!document.head.querySelector('[data-autofill-style]')) {
-        const style = document.createElement('style');
-        style.setAttribute('data-autofill-style', 'true');
-        style.innerHTML = `.autofilled { background-color: #f2f2f2 !important; }`;
-        document.head.appendChild(style);
-    }
-
-    const form = document.getElementById('edit-material-form');
-    if (!form) return;
-
-    const materialId = form.dataset.materialId;
-    if (!materialId) return;
-
-    // --- AUTO-FILL MATERIAL DETAILS ---
-    const brandInput = form.querySelector('input[name="brand"]');
-    const typeInput = form.querySelector('input[name="material_type"]');
-    const descInput = form.querySelector('textarea[name="description"]');
-    const priceInput = form.querySelector('input[name="price"]');
-    const lifecycleInput = form.querySelector('input[name="lifecycle"]');
-
-    const autofillElements = [descInput, priceInput, lifecycleInput];
-
-    function setAutofilled(element, value) {
-        if (element.value !== value) { element.value = value; }
-        element.classList.add('autofilled');
-        element.addEventListener('input', function onFirstInput() {
-            element.classList.remove('autofilled');
-            element.removeEventListener('input', onFirstInput);
-        }, { once: true });
-    }
-
-    function clearAutofilled(elements) {
-        elements.forEach(el => {
-            if (el.classList.contains('autofilled')) {
-                el.value = '';
-                el.classList.remove('autofilled');
-            }
-        });
-    }
-
-    async function fetchMaterialDetails() {
-        const brand = brandInput.value.trim();
-        const type = typeInput.value.trim();
-        
-        if (!brand || !type) { clearAutofilled(autofillElements); return; }
-
-        try {
-            const params = new URLSearchParams({ brand, type, exclude_id: materialId });
-            const response = await fetch(`/material_details?${params.toString()}`);
-            if (!response.ok) { clearAutofilled(autofillElements); return; }
-            const data = await response.json();
-            if (data && data.description) {
-                setAutofilled(descInput, data.description || '');
-                setAutofilled(priceInput, data.price || '');
-                setAutofilled(lifecycleInput, data.lifecycle || '');
-            } else { clearAutofilled(autofillElements); }
-        } catch (error) {
-            console.error('Error fetching material details:', error);
-            clearAutofilled(autofillElements);
-        }
-    }
-
-    brandInput.addEventListener('input', fetchMaterialDetails);
-    typeInput.addEventListener('input', fetchMaterialDetails);
-}
-
-// Attach handlers for the edit item modal
-function initEditItemModalContent() {
-    // Add a style tag for the autofill class
-    if (!document.head.querySelector('[data-autofill-style]')) {
-        const style = document.createElement('style');
-        style.setAttribute('data-autofill-style', 'true');
-        style.innerHTML = `.autofilled { background-color: #f2f2f2 !important; }`;
-        document.head.appendChild(style);
-    }
-
-    const form = document.getElementById('edit-item-form');
-    if (!form) return;
-
-    const itemId = form.dataset.itemId;
-    const brand = form.dataset.materialBrand;
-    const type = form.dataset.materialType;
-
-    if (!itemId || !brand || !type) return;
-
-    const zoneInput = form.querySelector('#zone_name');
-    const purposeInput = form.querySelector('select[name="purpose"]');
-    const packagingInput = form.querySelector('select[name="packaging"]');
-    const commentInput = form.querySelector('input[name="comment"]');
-
-    if (!zoneInput || !purposeInput || !packagingInput || !commentInput) return;
-    
-    const autofillElements = [commentInput];
-
-    function setAutofilled(element, value) {
-        if (element.value !== value) {
-            element.value = value;
-        }
-        element.classList.add('autofilled');
-        
-        element.addEventListener('input', function onFirstInput() {
-            element.classList.remove('autofilled');
-            element.removeEventListener('input', onFirstInput);
-        }, { once: true });
-    }
-
-    function clearAutofilled(elements) {
-        elements.forEach(el => {
-            if (el.classList.contains('autofilled')) {
-                el.value = '';
-                el.classList.remove('autofilled');
-            }
-        });
-    }
-
-    async function fetchItemDetails() {
-        const zone = zoneInput.value.trim();
-        const purpose = purposeInput.value;
-        const packaging = packagingInput.value;
-
-        if (!zone || !purpose || !packaging) {
-            clearAutofilled(autofillElements);
-            return;
-        }
-
-        const params = new URLSearchParams({ brand, type, zone, purpose, packaging, exclude_id: itemId });
-        try {
-            const response = await fetch(`/item_details?${params.toString()}`);
-            if (!response.ok) {
-                clearAutofilled(autofillElements);
-                return;
-            }
-            const data = await response.json();
-            if (data && data.comment) {
-                setAutofilled(commentInput, data.comment);
-            } else {
-                clearAutofilled(autofillElements);
-            }
-        } catch (error) {
-            console.error('Error fetching item details:', error);
-            clearAutofilled(autofillElements);
-        }
-    }
-
-    zoneInput.addEventListener('input', fetchItemDetails);
-    purposeInput.addEventListener('change', fetchItemDetails);
-    packagingInput.addEventListener('change', fetchItemDetails);
-}
-
 // Wanneer men op het icoontje klikt
+function setAndExecute(element, html) {
+    element.innerHTML = html;
+    Array.from(element.querySelectorAll("script")).forEach(oldScript => {
+        const newScript = document.createElement("script");
+        Array.from(oldScript.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value));
+        newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+        oldScript.parentNode.replaceChild(newScript, oldScript);
+    });
+}
+
 document.addEventListener("DOMContentLoaded", () => {
 
     // --- UNIVERSAL AJAX FORM SUBMISSION FOR MODALS ---
@@ -1068,6 +448,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // If the form is not inside a .modal-body, let it submit normally.
         if (!modalBody) {
+            return;
+        }
+
+        // Laat de browser of een ander script de validatie afhandelen.
+        // Als het formulier ongeldig is, stopt de functie hier.
+        if (!form.checkValidity()) {
+            // De specifieke validatiescripts in de partials (bv. add_item_partial)
+            // roepen reportValidity() al aan, dus we hoeven dat hier niet te doen.
             return;
         }
 
@@ -1099,16 +487,7 @@ document.addEventListener("DOMContentLoaded", () => {
             // If server responds with an error (e.g., validation failed),
             // it will return the re-rendered partial. We replace the content.
             if (!response.ok) {
-                modalBody.innerHTML = await response.text();
-                // Re-run initialization scripts for the new content
-                const modal = modalBody.closest('.return-modal');
-                if (modal) {
-                    if (modal.id === 'addItemModal') initAddItemModalContent();
-                    else if (modal.id === 'editItemModal') initEditItemModalContent();
-                    else if (modal.id === 'editMaterialModal') initEditMaterialModalContent();
-                    else if (modal.id === 'returnModal') initReturnModalContent();
-                    // reserveItemModal has its own simple script inside the partial, which is fine.
-                }
+                setAndExecute(modalBody, await response.text());
                 return;
             }
 
@@ -1120,172 +499,78 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    document.querySelectorAll(".return-btn").forEach(btn => {
-        btn.addEventListener("click", async (e) => {
-            e.preventDefault();
-            const reservationId = btn.dataset.reservationId;
-            const modal = document.getElementById("returnModal");
-            const container = document.getElementById("returnModalContent");
-            
-            if (!modal || !container) return;
-            
-            // Show loading state
-            container.innerHTML = '<div class="modal-loading"><div class="loading-spinner"></div><span>Loading...</span></div>';
-            modal.classList.add("is-open");
-            modal.style.display = "flex";
-            
-            try {
-                const response = await fetch(`/reservation/${reservationId}/return`, {
-                    headers: { "X-Requested-With": "XMLHttpRequest" }
-                });
-                const html = await response.text();
-                container.innerHTML = html;
-                initReturnModalContent();
-            } catch (error) {
-                console.error("Error loading return form:", error);
-                container.innerHTML = '<div class="modal-loading" style="color: #dc2626;"><span>Error loading form. Please try again.</span></div>';
-            }
-        });
+    // --- CLOSE STATIC MODALS ---
+    // Handles closing for simple modals like the per-item reservation list.
+    document.body.addEventListener('click', function(e) {
+        if (e.target.matches('[data-modal-close]') || e.target.closest('[data-modal-close]')) {
+            const modal = e.target.closest('.return-modal, .modal');
+            if (modal) modal.classList.remove('is-open');
+        }
     });
 
-    // Add item button handler
-    document.querySelectorAll('[data-modal-target="addItemModal"]').forEach(btn => {
-        btn.addEventListener("click", async (e) => {
-            e.preventDefault();
-            const modal = document.getElementById("addItemModal");
-            const container = document.getElementById("addItemModalContent");
-            
-            if (!modal || !container) return;
-            
-            // Show loading state
-            container.innerHTML = '<div class="modal-loading"><div class="loading-spinner"></div><span>Loading...</span></div>';
-            modal.classList.add("is-open");
-            modal.style.display = "flex";
-            
-            try {
-                const response = await fetch("{{ url_for('main.add_item') }}", {
-                    headers: { "X-Requested-With": "XMLHttpRequest" }
-                });
-                const html = await response.text();
-                container.innerHTML = html;
-                // Initialize scripts for the new content
-                initAddItemModalContent();
-            } catch (error) {
-                console.error("Error loading add item form:", error);
-                container.innerHTML = '<div class="modal-loading" style="color: #dc2626;"><span>Error loading form. Please try again.</span></div>';
-            }
-        });
-    });
-    
-    // Reserve item button handler
-    document.querySelectorAll('.reserve-item-btn').forEach(btn => {
-        btn.addEventListener("click", async (e) => {
-            e.preventDefault();
-            const itemId = btn.getAttribute('data-item-id');
-            const brand = btn.getAttribute('data-brand') || '';
-            const materialId = btn.getAttribute('data-material-id') || '';
-            const modal = document.getElementById("reserveItemModal");
-            const container = document.getElementById("reserveItemModalContent");
-            
-            if (!modal || !container || !itemId) return;
-            
-            // Build URL with query params to preserve current page state
-            const params = new URLSearchParams();
-            if (brand) params.set('brand', brand);
-            if (materialId) params.set('material_id', materialId);
-            const url = `/item/${itemId}/use${params.toString() ? '?' + params.toString() : ''}`;
-            
-            // Show loading state
-            container.innerHTML = '<div class="modal-loading"><div class="loading-spinner"></div><span>Loading...</span></div>';
-            modal.classList.add("is-open");
-            modal.style.display = "flex";
-            
-            try {
-                const response = await fetch(url, {
-                    headers: { "X-Requested-With": "XMLHttpRequest" }
-                });
-                const html = await response.text();
-                container.innerHTML = html;
-            } catch (error) {
-                console.error("Error loading reserve item form:", error);
-                container.innerHTML = '<div class="modal-loading" style="color: #dc2626;"><span>Error loading form. Please try again.</span></div>';
-            }
-        });
-    });
-    
-    // Edit item button handler (exactly like reserve-btn)
-    document.querySelectorAll('.edit-item-btn').forEach(btn => {
-        btn.addEventListener("click", async (e) => {
-            e.preventDefault();
-            const itemId = btn.getAttribute('data-item-id');
-            const brand = btn.getAttribute('data-brand') || '';
-            const materialId = btn.getAttribute('data-material-id') || '';
-            const modal = document.getElementById("editItemModal");
-            const container = document.getElementById("editItemModalContent");
-            
-            if (!modal || !container || !itemId) return;
-            
-            // Build URL with query params to preserve current page state
-            const params = new URLSearchParams();
-            if (brand) params.set('brand', brand);
-            if (materialId) params.set('material_id', materialId);
-            const url = `/item/${itemId}/edit${params.toString() ? '?' + params.toString() : ''}`;
-            
-            // Show loading state
-            container.innerHTML = '<div class="modal-loading"><div class="loading-spinner"></div><span>Loading...</span></div>';
-            modal.classList.add("is-open");
-            modal.style.display = "flex";
-            
-            try {
-                const response = await fetch(url, {
-                    headers: { "X-Requested-With": "XMLHttpRequest" }
-                });
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                const html = await response.text();
-                container.innerHTML = html;
-                initEditItemModalContent();
-            } catch (error) {
-                console.error("Error loading edit item form:", error);
-                container.innerHTML = '<div class="modal-loading" style="color: #dc2626;"><span>Error loading form. Please try again.</span></div>';
-            }
-        });
-    });
-    
-    // Edit material button handler
-    const editMaterialBtn = document.getElementById('edit-material-btn');
-    if (editMaterialBtn) {
-        editMaterialBtn.addEventListener("click", async (e) => {
-            e.preventDefault();
-            const url = editMaterialBtn.getAttribute('href');
-            const modal = document.getElementById("editMaterialModal");
-            const container = document.getElementById("editMaterialModalContent");
-            
-            if (!modal || !container || !url) return;
-            
-            // Show loading state
-            container.innerHTML = '<div class="modal-loading"><div class="loading-spinner"></div><span>Loading...</span></div>';
-            modal.classList.add("is-open");
-            modal.style.display = "flex";
-            
-            try {
-                const response = await fetch(url, {
-                    headers: { "X-Requested-With": "XMLHttpRequest" }
-                });
-                const html = await response.text();
-                container.innerHTML = html;
-                initEditMaterialModalContent();
-            } catch (error) {
-                console.error("Error loading edit material form:", error);
-                container.innerHTML = '<div class="modal-loading" style="color: #dc2626;"><span>Error loading form. Please try again.</span></div>';
-            }
-        });
-    }
+    // --- GENERIC MODAL OPENER ---
+    // Uses event delegation to handle clicks on any element that should open a modal.
+    // It reads data attributes to determine which modal to open and what content to load.
+    document.body.addEventListener('click', async (e) => {
+        const modalTrigger = e.target.closest('[data-modal-target]');
+        if (!modalTrigger) return;
 
-    // Handle form submission in modal - let it submit normally
-    // The form will redirect on success, which is handled by the browser
+        e.preventDefault();
+        const modalId = modalTrigger.dataset.modalTarget;
+        const modal = document.getElementById(modalId);
+        if (!modal) return;
 
+        // Handle static modals (content is already in the DOM, like the reservations list per item)
+        if (!modal.querySelector('[id$="ModalContent"]')) {
+            modal.classList.add('is-open');
+            return;
+        }
+
+        // Handle AJAX modals (content needs to be fetched)
+        const container = modal.querySelector('.modal-body');
+        if (!container) return;
+
+        let url;
+        const itemId = modalTrigger.dataset.itemId;
+        const reservationId = modalTrigger.dataset.reservationId;
+        const currentParams = new URLSearchParams(window.location.search);
+
+        // De URL voor de edit-knop halen we uit de href, voor de anderen bouwen we hem op.
+        url = modalTrigger.href;
+        if (!url) {
+            switch (modalId) {
+            case 'addItemModal':
+                url = "{{ url_for('main.add_item') }}";
+                break;
+            case 'editItemModal':
+                url = `/item/${itemId}/edit?${currentParams.toString()}`;
+                break;
+            case 'reserveItemModal':
+                url = `/item/${itemId}/use?${currentParams.toString()}`;
+                break;
+            case 'returnModal':
+                url = `/reservation/${reservationId}/return`;
+                break;
+            default:
+                return; // Do nothing if the modal type is unknown
+            }
+        }
+
+        // Show loading state and open modal
+        container.innerHTML = '<div class="modal-loading"><div class="loading-spinner"></div><span>Loading...</span></div>';
+        modal.classList.add("is-open");
+        modal.style.display = "flex";
+
+        // Fetch and inject content
+        try {
+            const response = await fetch(url, { headers: { "X-Requested-With": "XMLHttpRequest" } });
+            if (!response.ok) throw new Error(`Failed to load: ${response.statusText}`);
+            setAndExecute(container, await response.text());
+        } catch (error) {
+            console.error(`Error loading content for ${modalId}:`, error);
+            container.innerHTML = '<div class="modal-loading" style="color: #dc2626;"><span>Error loading form. Please try again.</span></div>';
+        }
+    });
 });
 
 function closeAddItemModal() {
@@ -1324,6 +609,14 @@ function closeReserveItemModal() {
 }
 window.closeReserveItemModal = closeReserveItemModal;
 
+function closeReturnModal() {
+    const modal = document.getElementById("returnModal");
+    if (modal) {
+        modal.classList.remove("is-open");
+        modal.style.display = "none";
+    }
+}
+window.closeReturnModal = closeReturnModal;
 </script>
 <script>
 
@@ -1341,12 +634,6 @@ function enforceMax(inputId) {
     }
 }
 
-function closeReturnModal() {
-    const modal = document.getElementById("returnModal");
-    modal.classList.remove("is-open");
-    modal.style.display = "none";
-}
-window.closeReturnModal = closeReturnModal;
 </script>
 <script>
 document.addEventListener("DOMContentLoaded", function () {
