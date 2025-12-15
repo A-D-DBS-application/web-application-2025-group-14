@@ -184,76 +184,46 @@
         }
     }
     
-    // Quantity validation - ensure English message
     // Quantity validation and conditional fields
     const quantityInput = document.getElementById("quantity");
     const quantityError = document.getElementById("quantity-error");
     const zoneInput = document.getElementById("zone_name");
     const purposeSelect = document.getElementById("purpose");
     const packagingSelect = document.getElementById("packaging");
-    
-    if (quantityInput && quantityError) {
-        quantityInput.addEventListener("invalid", function(e) {
-            // Prevent default browser message
-            e.preventDefault();
-            
-            if (this.validity.rangeUnderflow) {
-                // Set custom English message
-                this.setCustomValidity("Quantity must be positive");
-                quantityError.style.display = "block";
+
     if (quantityInput) {
         // Logic for conditional fields based on quantity
         if (zoneInput && purposeSelect && packagingSelect) {
-            const itemFieldGroups = [
-                zoneInput.closest('.form-group'),
-                purposeSelect.closest('.form-group'),
-                packagingSelect.closest('.form-group')
-            ];
             const itemFields = [zoneInput, purposeSelect, packagingSelect];
+            const itemFieldGroups = itemFields.map(el => el ? el.closest('.form-group') : null);
 
             const updateItemFieldsState = () => {
                 const isZero = quantityInput.value === '0';
-
                 itemFields.forEach(el => {
-                    el.required = !isZero;
-                    el.disabled = isZero;
+                    if (el) {
+                        el.required = !isZero;
+                        el.disabled = isZero;
+                    }
                 });
-                
-                // Show our custom message instead of browser's default
-                requestAnimationFrame(() => {
-                    this.reportValidity();
                 itemFieldGroups.forEach(el => {
                     if (el) el.style.opacity = isZero ? '0.5' : '1';
                 });
-            }
-        });
-        
-        quantityInput.addEventListener("input", function() {
-            const value = parseInt(this.value);
-            if (this.value !== "" && (isNaN(value) || value < 0)) {
-                quantityError.style.display = "block";
-                this.setCustomValidity("Quantity must be positive");
-            } else {
-                quantityError.style.display = "none";
-                // Clear custom validity when valid
-                this.setCustomValidity("");
-            }
-        });
             };
 
             quantityInput.addEventListener('input', updateItemFieldsState);
             updateItemFieldsState(); // Set initial state on load
         }
 
-        // Existing validation logic for the quantity field itself
+        // Validation logic for the quantity field itself
         if (quantityError) {
             quantityInput.addEventListener("invalid", function(e) {
-                e.preventDefault();
+                e.preventDefault(); // Stop browser's default validation message
                 if (this.validity.rangeUnderflow) {
                     this.setCustomValidity("Quantity must be positive");
                     quantityError.style.display = "block";
-                    requestAnimationFrame(() => { this.reportValidity(); });
                 }
+                // We can use requestAnimationFrame to ensure our custom message UI updates smoothly
+                requestAnimationFrame(() => this.reportValidity());
             });
             
             quantityInput.addEventListener("input", function() {
@@ -263,7 +233,7 @@
                     this.setCustomValidity("Quantity must be positive");
                 } else {
                     quantityError.style.display = "none";
-                    this.setCustomValidity("");
+                    this.setCustomValidity(""); // Clear custom validity when the value is valid
                 }
             });
         }

@@ -759,6 +759,12 @@ def add_item():
                     return render_template("add_item_partial.html"), 400
                 return redirect(url_for("main.inventory"))
 
+        # If quantity is 0, we just created/updated the material. Commit and leave.
+        if quantity == 0:
+            db.session.commit()
+            flash("Material information saved. No item added as quantity was 0.", "info")
+            return redirect(url_for("main.inventory", material_id=material.material_id))
+
         # --- Zone data ---
         zone_name = request.form["zone_name"].strip().upper()
 
