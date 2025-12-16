@@ -735,7 +735,7 @@ body {
 }
 
 #filter-panel .panel-content {
-    overflow: hidden; /* Prevent scrolling on the filter panel */
+    overflow-y: auto; /* Allow scrolling on the filter panel */
 }
 
 @keyframes panelSlideIn {

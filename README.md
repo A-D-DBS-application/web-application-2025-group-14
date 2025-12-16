@@ -5,6 +5,10 @@
 
     (- How to install the app)
 
+        The app is compatible with all devices and is intended to be used in landscape mode, although portrait mode works perfectly fine as well.
+        The layout of the item cards may vary depending on the device used; the optimal layout appears on PC, iPad Pro, Surface Pro 7, and Asus Zenbook Fold.
+
+
     - How to use the app
 
         The MVP is an inventory management system designed for Primetals. 
