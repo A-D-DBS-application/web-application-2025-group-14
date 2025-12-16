@@ -45,7 +45,7 @@
 
     - Session 1: https://drive.google.com/file/d/1Fa0YxpjtZGw25gkQEN7VB9jRr65ZqKb-/view?usp=sharing
 
-    - Session 2: (link)
+    - Session 2: https://drive.google.com/file/d/11f_dVBqkKLGCv7mgqVd0i-gRq2Jzc5OA/view?usp=sharing
 
 
 # Other links/info
@@ -53,6 +53,12 @@
     - Database Design
 
         https://supabase.com/dashboard/project/dlklychiybmzxpqfadks/database/schemas
+
+
+    - Render
+
+        https://web-application-2025-group-14.onrender.com
+
 
     - Complex Algorithm
 
