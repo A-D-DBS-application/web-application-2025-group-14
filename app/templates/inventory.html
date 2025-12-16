@@ -202,14 +202,6 @@
         </header>
 
         <form method="get" class="filter-form">
-            {# Preserve the active brand and material selection when applying filters #}
-            {% if active_brand %}
-                <input type="hidden" name="brand" value="{{ active_brand }}">
-            {% endif %}
-            {% if active_material_id %}
-                <input type="hidden" name="material_id" value="{{ active_material_id }}">
-            {% endif %}
-
             <label>
                 Type
                 <input type="text" name="q_type" placeholder="Search type..."

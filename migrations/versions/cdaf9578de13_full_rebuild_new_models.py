@@ -1,8 +1,8 @@
 """FULL REBUILD: new models
 
-Revision ID: 7eb53a8fc380
+Revision ID: cdaf9578de13
 Revises: 
-Create Date: 2025-12-13 17:08:38.362555
+Create Date: 2025-12-16 20:37:55.621798
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '7eb53a8fc380'
+revision = 'cdaf9578de13'
 down_revision = None
 branch_labels = None
 depends_on = None

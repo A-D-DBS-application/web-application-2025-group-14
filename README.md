@@ -6,7 +6,7 @@
     (- How to install the app)
 
         The app is compatible with all devices and is intended to be used in landscape mode, although portrait mode works perfectly fine as well.
-        The layout of the item cards may vary depending on the device used; the optimal layout appears on PC, iPad Pro, Surface Pro 7, and Asus Zenbook Fold.
+        The layout of the item cards may vary depending on the device used; the optimal layout appears on PC, iPad Pro, Surface Pro 7.
 
 
     - How to use the app
@@ -31,7 +31,7 @@
         Finally, when returning to the main screen (possibly by deselecting a Brand), the user will see a For You page on the right side. This is a custom list of Material_Types that the User has previously viewed or made reservations of; the list can be modified via the Bins. Clicking View Items redirects the user to the corresponding Items, increasing search efficiency above the Search & Filter.
 
 
-# UI Prototype (onbelangrijk)
+# UI Prototype [onbelangrijk, zie UI (prototype.png)]
 
     - https://www.figma.com/make/FOkPA0LPCYynYhBK7A0kYn/Group-14---Primetals?node-id=0-1&t=cj4AqcCe58eQ5cuZ-1
 
@@ -43,13 +43,9 @@
 
 # Feedback sessions
 
-    - session 1: (link)
+    - Session 1: https://drive.google.com/file/d/1Fa0YxpjtZGw25gkQEN7VB9jRr65ZqKb-/view?usp=sharing
 
-    - session 2: (link)
-
-# Demo
-
-    - link: 
+    - Session 2: (link)
 
 
 # Other links/info
@@ -57,7 +53,7 @@
     - Database Design
 
         https://supabase.com/dashboard/project/dlklychiybmzxpqfadks/database/schemas
-    
-    - Powerpoint
 
-        https://docs.google.com/presentation/d/1trnFEss4Kgarh_zSrZbQBuhaR5IGdWPBHITv0d-TXtY/edit?usp=sharing
+    - Complex Algorithm
+
+        'For You'  (will be explained during the presentation) 
